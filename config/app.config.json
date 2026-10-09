@@ -1,0 +1,60 @@
+{
+  "$comment": "SINGLE SOURCE OF TRUTH. Every tunable value lives here; code references these variables only. Edit this file (and config/content/*.json) and republish the app to change branding, modules, scoring, or the AI endpoint. Secrets and Databricks resource IDs are NOT configured here \u2014 they come from app.yaml / platform env.",
+
+  "branding": {
+    "appName": "Lakebase Partner Readiness",
+    "shortName": "Lakebase Readiness",
+    "tagline": "Guided, hands-on enablement for Databricks Lakebase \u2014 learn each capability, prove your knowledge, and get a personalized adoption plan.",
+    "org": "Databricks Partner Enablement",
+    "docsBaseUrl": "https://docs.databricks.com/aws/en/oltp/projects"
+  },
+
+  "onboarding": {
+    "enabled": true,
+    "heading": "Welcome, partner",
+    "subheading": "Tell us who you are so we can track your progress and tailor your adoption plan.",
+    "fields": [
+      { "key": "name", "label": "Full name", "type": "text", "required": true, "placeholder": "Jordan Rivera" },
+      { "key": "email", "label": "Work email", "type": "email", "required": true, "placeholder": "jordan@partner.com" },
+      { "key": "org", "label": "Partner organization", "type": "text", "required": true, "placeholder": "Acme Data Partners" }
+    ]
+  },
+
+  "scoring": {
+    "passThreshold": 65,
+    "maturityLevels": [
+      { "key": "novice", "label": "Novice", "min": 0, "max": 40, "description": "Not yet engaged or missing most core concepts." },
+      { "key": "developing", "label": "Developing", "min": 40, "max": 65, "description": "Understands the concepts; gaps remain in hands-on application." },
+      { "key": "proficient", "label": "Proficient", "min": 65, "max": 85, "description": "Solid across concepts and labs." },
+      { "key": "expert", "label": "Expert", "min": 85, "max": 101, "description": "Can architect and troubleshoot Lakebase independently." }
+    ]
+  },
+
+  "ai": {
+    "enabled": true,
+    "endpointName": "databricks-meta-llama-3-3-70b-instruct",
+    "maxTokens": 1200,
+    "temperature": 0.3,
+    "planHeading": "Your personalized Lakebase adoption plan",
+    "planDescription": "Generated from your module scores. Review with your Databricks partner contact before acting."
+  },
+
+  "modules": [
+    { "key": "fundamentals", "order": 1, "title": "Lakebase Fundamentals", "weight": 10, "icon": "layers", "summary": "What Lakebase is, how compute and storage are separated, and why LTAP matters.", "gating": false },
+    { "key": "first-project", "order": 2, "title": "First Project & Database", "weight": 10, "icon": "database", "summary": "Create a project, use branches, and connect with psql.", "gating": true },
+    { "key": "app-dev", "order": 3, "title": "Application Development", "weight": 20, "icon": "code", "summary": "Back apps with Lakebase \u2014 Databricks Apps integration, the Data API, and external connections.", "gating": false },
+    { "key": "data-integration", "order": 4, "title": "Data Integration", "weight": 15, "icon": "arrow-left-right", "summary": "Synced tables (UC\u2192Postgres) and Change Data Feed (Postgres\u2192Delta).", "gating": false },
+    { "key": "performance", "order": 5, "title": "Performance & Scaling", "weight": 10, "icon": "gauge", "summary": "Autoscaling, scale-to-zero, and read replicas.", "gating": false },
+    { "key": "ai-ml", "order": 6, "title": "AI/ML with Lakebase", "weight": 15, "icon": "sparkles", "summary": "Online feature store, agent memory, and Lakebase Search (vector + text + hybrid).", "gating": false },
+    { "key": "operations", "order": 7, "title": "Operations & Resilience", "weight": 10, "icon": "shield", "summary": "Branch workflows, instant restore, HA, and DR.", "gating": false },
+    { "key": "security", "order": 8, "title": "Security & Production", "weight": 10, "icon": "lock", "summary": "OAuth roles, row-level security, Data API permissions, and IaC.", "gating": false }
+  ],
+
+  "questionTypes": {
+    "concept": { "label": "Concept", "icon": "lightbulb" },
+    "fact": { "label": "Fact check", "icon": "check-circle" },
+    "applied": { "label": "Applied", "icon": "wrench" },
+    "scenario": { "label": "Scenario", "icon": "map" },
+    "gotcha": { "label": "Common pitfall", "icon": "alert-triangle" }
+  }
+}

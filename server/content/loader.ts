@@ -1,0 +1,152 @@
+/**
+ * Loads and validates the externally-editable content files:
+ *   - config/app.config.json      (single source of truth for all tunables)
+ *   - config/content/modules.json (per-module learning collateral)
+ *   - config/content/questions.json (the editable Q&A bank)
+ *
+ * Files are read at runtime from the project root so they can be edited and the
+ * app republished without touching any TypeScript. All three are validated with
+ * zod so a malformed edit fails loudly at startup instead of corrupting the UI.
+ */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { z } from 'zod';
+
+const CONFIG_DIR = join(process.cwd(), 'config');
+
+// ---------- Schemas ----------
+
+const onboardingFieldSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  type: z.string(),
+  required: z.boolean(),
+  placeholder: z.string().optional().default(''),
+});
+
+const maturityLevelSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  min: z.number(),
+  max: z.number(),
+  description: z.string(),
+});
+
+const moduleMetaSchema = z.object({
+  key: z.string(),
+  order: z.number(),
+  title: z.string(),
+  weight: z.number(),
+  icon: z.string(),
+  summary: z.string(),
+  gating: z.boolean().default(false),
+});
+
+const questionTypeSchema = z.object({ label: z.string(), icon: z.string() });
+
+export const appConfigSchema = z.object({
+  branding: z.object({
+    appName: z.string(),
+    shortName: z.string(),
+    tagline: z.string(),
+    org: z.string(),
+    docsBaseUrl: z.string(),
+  }),
+  onboarding: z.object({
+    enabled: z.boolean(),
+    heading: z.string(),
+    subheading: z.string(),
+    fields: z.array(onboardingFieldSchema),
+  }),
+  scoring: z.object({
+    passThreshold: z.number(),
+    maturityLevels: z.array(maturityLevelSchema),
+  }),
+  ai: z.object({
+    enabled: z.boolean(),
+    endpointName: z.string(),
+    maxTokens: z.number(),
+    temperature: z.number(),
+    planHeading: z.string(),
+    planDescription: z.string(),
+  }),
+  modules: z.array(moduleMetaSchema),
+  questionTypes: z.record(z.string(), questionTypeSchema),
+});
+
+const docLinkSchema = z.object({ label: z.string(), path: z.string() });
+
+const moduleContentSchema = z.object({
+  objectives: z.array(z.string()),
+  overview: z.array(z.string()),
+  lab: z.object({
+    title: z.string(),
+    intro: z.string(),
+    steps: z.array(z.string()),
+  }),
+  docLinks: z.array(docLinkSchema),
+});
+
+export const modulesContentSchema = z.object({
+  modules: z.record(z.string(), moduleContentSchema),
+});
+
+const choiceSchema = z.object({ key: z.string(), text: z.string() });
+
+const questionSchema = z.object({
+  id: z.string(),
+  moduleKey: z.string(),
+  type: z.string(),
+  prompt: z.string(),
+  choices: z.array(choiceSchema),
+  correctAnswer: z.string(),
+  explanation: z.string(),
+});
+
+export const questionsSchema = z.object({ questions: z.array(questionSchema) });
+
+export type AppConfig = z.infer<typeof appConfigSchema>;
+export type ModulesContent = z.infer<typeof modulesContentSchema>;
+export type Question = z.infer<typeof questionSchema>;
+
+// ---------- Loading (cached) ----------
+
+function readAndParse<T>(file: string, schema: z.ZodType<T>): T {
+  const abs = join(CONFIG_DIR, file);
+  let raw: string;
+  try {
+    raw = readFileSync(abs, 'utf8');
+  } catch {
+    throw new Error(`Content file not found: ${abs}. It must ship with the app.`);
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`Invalid JSON in ${file}: ${(err as Error).message}`);
+  }
+  const result = schema.safeParse(json);
+  if (!result.success) {
+    throw new Error(`Validation failed for ${file}: ${result.error.message}`);
+  }
+  return result.data;
+}
+
+let configCache: AppConfig | null = null;
+let modulesCache: ModulesContent | null = null;
+let questionsCache: Question[] | null = null;
+
+export function loadConfig(): AppConfig {
+  if (!configCache) configCache = readAndParse('app.config.json', appConfigSchema);
+  return configCache;
+}
+
+export function loadModules(): ModulesContent {
+  if (!modulesCache) modulesCache = readAndParse('content/modules.json', modulesContentSchema);
+  return modulesCache;
+}
+
+export function loadQuestions(): Question[] {
+  if (!questionsCache) questionsCache = readAndParse('content/questions.json', questionsSchema).questions;
+  return questionsCache;
+}

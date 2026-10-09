@@ -1,0 +1,637 @@
+{
+  "$comment": "EDITABLE Q&A BANK. 52 knowledge-check questions across 8 modules. Each question: id, moduleKey, type (concept|fact|applied|scenario|gotcha), prompt, 4 choices (A-D), correctAnswer, explanation. Edit freely and republish \u2014 the server loads this file and strips correctAnswer before sending questions to the browser; grading happens server-side.",
+
+  "questions": [
+    {
+      "id": "1.1", "moduleKey": "fundamentals", "type": "concept",
+      "prompt": "What architectural principle most differentiates Lakebase from traditional PostgreSQL?",
+      "choices": [
+        { "key": "A", "text": "It stores data as columnar Parquet instead of row-oriented pages" },
+        { "key": "B", "text": "It separates stateless compute from durable storage" },
+        { "key": "C", "text": "It replaces SQL with a proprietary query language" },
+        { "key": "D", "text": "It runs only in-memory with no durability guarantees" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Lakebase runs stateless compute that scales, suspends, and fails over independently of a durable storage layer. This separation is what enables instant branches, scale-to-zero, instant replicas, and point-in-time restore."
+    },
+    {
+      "id": "1.2", "moduleKey": "fundamentals", "type": "concept",
+      "prompt": "Which storage component durably replicates the write-ahead log (WAL) using Paxos consensus?",
+      "choices": [
+        { "key": "A", "text": "Pageservers" },
+        { "key": "B", "text": "Compute nodes" },
+        { "key": "C", "text": "Safekeepers" },
+        { "key": "D", "text": "The Unity Catalog metastore" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Safekeepers replicate the WAL with Paxos consensus so committed transactions survive failures (RPO = 0). Pageservers reconstruct pages from the WAL; compute is stateless."
+    },
+    {
+      "id": "1.3", "moduleKey": "fundamentals", "type": "concept",
+      "prompt": "What does LTAP stand for, and what does it enable?",
+      "choices": [
+        { "key": "A", "text": "Low-Transaction Analytical Processing \u2014 batch-only analytics" },
+        { "key": "B", "text": "Lake Transactional and Analytical Processing \u2014 a single data copy serves both workloads" },
+        { "key": "C", "text": "Local Table Access Protocol \u2014 a wire protocol for Postgres" },
+        { "key": "D", "text": "Lakehouse Transfer and Archival Pipeline \u2014 cold storage tiering" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "LTAP = Lake Transactional and Analytical Processing. One governed copy of data serves both low-latency transactional apps and lakehouse analytics, with bidirectional UC integration."
+    },
+    {
+      "id": "1.4", "moduleKey": "fundamentals", "type": "concept",
+      "prompt": "What is the Recovery Point Objective (RPO) when a Lakebase compute node fails?",
+      "choices": [
+        { "key": "A", "text": "RPO = 0 \u2014 no committed data is lost" },
+        { "key": "B", "text": "RPO = 15 minutes" },
+        { "key": "C", "text": "RPO = 1 hour" },
+        { "key": "D", "text": "RPO is undefined; recovery requires a manual backup restore" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Because the WAL is durably replicated by safekeepers before a commit is acknowledged, a compute failure loses no committed data \u2014 RPO = 0. Compute is stateless and simply restarts."
+    },
+    {
+      "id": "1.5", "moduleKey": "fundamentals", "type": "concept",
+      "prompt": "How does Lakebase integrate with Unity Catalog?",
+      "choices": [
+        { "key": "A", "text": "One-way only: UC can read Lakebase but not write to it" },
+        { "key": "B", "text": "It does not integrate with Unity Catalog" },
+        { "key": "C", "text": "Bidirectionally: sync UC\u2192Postgres and capture Postgres\u2192Delta" },
+        { "key": "D", "text": "Only through manual CSV export/import" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Integration is bidirectional \u2014 synced tables move UC Delta data into Postgres, and Change Data Feed captures Postgres changes back into Delta."
+    },
+    {
+      "id": "1.6", "moduleKey": "fundamentals", "type": "scenario",
+      "prompt": "A customer has three problems: unpredictable scaling, high idle cost, and no cross-region disaster recovery. Which combination of Lakebase features addresses all three?",
+      "choices": [
+        { "key": "A", "text": "Read replicas + scale-to-zero + cross-region DR" },
+        { "key": "B", "text": "Larger single instance + manual nightly backups" },
+        { "key": "C", "text": "Columnar storage + caching + a CDN" },
+        { "key": "D", "text": "Sharding the database by tenant" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Read replicas absorb read scaling, scale-to-zero eliminates idle compute cost, and cross-region disaster recovery handles regional outages \u2014 each feature maps to one of the three problems."
+    },
+
+    {
+      "id": "2.1", "moduleKey": "first-project", "type": "concept",
+      "prompt": "What is automatically provisioned when you create a new Lakebase project?",
+      "choices": [
+        { "key": "A", "text": "An empty project with no database until you add one" },
+        { "key": "B", "text": "A production branch, a databricks_postgres database, and compute (scale-to-zero at 24h)" },
+        { "key": "C", "text": "A read replica and a backup vault only" },
+        { "key": "D", "text": "A SQL warehouse and a Genie space" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "A new project auto-provisions a production branch, the default databricks_postgres database, and compute that scales to zero after a default 24-hour idle timeout."
+    },
+    {
+      "id": "2.2", "moduleKey": "first-project", "type": "concept",
+      "prompt": "What technology lets Lakebase create branches instantly without duplicating data?",
+      "choices": [
+        { "key": "A", "text": "Full physical backup and restore" },
+        { "key": "B", "text": "Logical replication to a new instance" },
+        { "key": "C", "text": "Copy-on-write" },
+        { "key": "D", "text": "Partition exchange" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Branches are copy-on-write: they are created instantly and you only pay for the pages you change, so no data is duplicated up front."
+    },
+    {
+      "id": "2.3", "moduleKey": "first-project", "type": "fact",
+      "prompt": "What is the maximum number of branches per project?",
+      "choices": [
+        { "key": "A", "text": "10" },
+        { "key": "B", "text": "100" },
+        { "key": "C", "text": "500" },
+        { "key": "D", "text": "Unlimited" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "A project supports up to 500 branches, which is more than enough for per-developer or per-test isolated copies."
+    },
+    {
+      "id": "2.4", "moduleKey": "first-project", "type": "fact",
+      "prompt": "What is required for ALL connections to Lakebase?",
+      "choices": [
+        { "key": "A", "text": "A VPN tunnel into the Databricks VPC" },
+        { "key": "B", "text": "SSL/TLS (sslmode=require at minimum)" },
+        { "key": "C", "text": "A static IP allowlist entry" },
+        { "key": "D", "text": "A long-lived database password" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Every Lakebase connection must use SSL/TLS; sslmode=require is the minimum. Credentials are short-lived OAuth tokens, not long-lived passwords."
+    },
+    {
+      "id": "2.5", "moduleKey": "first-project", "type": "fact",
+      "prompt": "What is the default scale-to-zero idle timeout for a new project?",
+      "choices": [
+        { "key": "A", "text": "60 seconds" },
+        { "key": "B", "text": "1 hour" },
+        { "key": "C", "text": "24 hours (configurable from 60s to 7 days)" },
+        { "key": "D", "text": "7 days, fixed" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "The default idle timeout is 24 hours, and it is configurable anywhere from 60 seconds up to 7 days."
+    },
+    {
+      "id": "2.6", "moduleKey": "first-project", "type": "scenario",
+      "prompt": "Developers each need an isolated copy of the production database for testing, without paying to duplicate all the data. What do you recommend?",
+      "choices": [
+        { "key": "A", "text": "Give everyone one shared database and coordinate carefully" },
+        { "key": "B", "text": "Create one branch per developer from production" },
+        { "key": "C", "text": "Export nightly dumps and have each developer restore locally" },
+        { "key": "D", "text": "Provision a separate full project per developer" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Copy-on-write branches give each developer an instant, isolated copy of production with no up-front data duplication cost \u2014 one branch per developer is the idiomatic pattern."
+    },
+
+    {
+      "id": "3.1", "moduleKey": "app-dev", "type": "concept",
+      "prompt": "What happens when you attach Lakebase as a resource to a Databricks App?",
+      "choices": [
+        { "key": "A", "text": "A Postgres role is auto-created for the app's service principal" },
+        { "key": "B", "text": "You must manually create and rotate a database password" },
+        { "key": "C", "text": "The app can only read, never write" },
+        { "key": "D", "text": "The database is copied into the app's container" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Attaching Lakebase to a Databricks App automatically creates a Postgres role for the app's service principal and grants access \u2014 no manual credential management."
+    },
+    {
+      "id": "3.2", "moduleKey": "app-dev", "type": "fact",
+      "prompt": "The Lakebase Data API is compatible with which standard?",
+      "choices": [
+        { "key": "A", "text": "GraphQL" },
+        { "key": "B", "text": "PostgREST" },
+        { "key": "C", "text": "OData" },
+        { "key": "D", "text": "gRPC" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "The Data API is PostgREST-compatible, exposing tables over HTTP with familiar REST conventions."
+    },
+    {
+      "id": "3.3", "moduleKey": "app-dev", "type": "applied",
+      "prompt": "Which HTTP methods does the Data API use for insert, update, and upsert?",
+      "choices": [
+        { "key": "A", "text": "Only POST for everything" },
+        { "key": "B", "text": "GET for insert, POST for update" },
+        { "key": "C", "text": "POST (insert), PATCH (update), or PUT (upsert) depending on semantics" },
+        { "key": "D", "text": "PUT for all writes, DELETE for updates" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Following PostgREST semantics, POST inserts, PATCH updates, and PUT upserts. GET is used for reads."
+    },
+    {
+      "id": "3.4", "moduleKey": "app-dev", "type": "applied",
+      "prompt": "How do you create a Postgres role for an external application's service principal?",
+      "choices": [
+        { "key": "A", "text": "CREATE ROLE sp WITH PASSWORD '...'" },
+        { "key": "B", "text": "Use the databricks_auth extension: databricks_create_role('{client-id}', 'SERVICE_PRINCIPAL')" },
+        { "key": "C", "text": "Add the service principal to the project owners group" },
+        { "key": "D", "text": "It is not possible; external apps must share the owner role" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "The databricks_auth extension maps Databricks identities to Postgres roles. For a service principal you pass its application (client) ID and the SERVICE_PRINCIPAL identity type."
+    },
+    {
+      "id": "3.5", "moduleKey": "app-dev", "type": "fact",
+      "prompt": "How are Data API requests authenticated?",
+      "choices": [
+        { "key": "A", "text": "A Databricks OAuth bearer token in the Authorization header" },
+        { "key": "B", "text": "HTTP Basic auth with the database password" },
+        { "key": "C", "text": "An API key in a query-string parameter" },
+        { "key": "D", "text": "Mutual TLS client certificates only" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Data API calls carry a Databricks OAuth bearer token in the Authorization header; the token is short-lived and maps to a Postgres role."
+    },
+    {
+      "id": "3.6", "moduleKey": "app-dev", "type": "concept",
+      "prompt": "Why can't the project owner use the Data API directly?",
+      "choices": [
+        { "key": "A", "text": "The owner lacks SELECT privileges by default" },
+        { "key": "B", "text": "The authenticator role cannot assume elevated-privilege accounts" },
+        { "key": "C", "text": "The owner's token is too long for the header" },
+        { "key": "D", "text": "The Data API only works for read-only roles" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "The Data API's authenticator role assumes the caller's role but, for security, cannot assume elevated-privilege accounts like the project owner. Use dedicated least-privilege roles instead."
+    },
+    {
+      "id": "3.7", "moduleKey": "app-dev", "type": "scenario",
+      "prompt": "You're building a multi-tenant SaaS backed by Lakebase with no custom backend code, and each tenant must only see its own data. What's the right approach?",
+      "choices": [
+        { "key": "A", "text": "Data API + row-level security" },
+        { "key": "B", "text": "One database per tenant with shared credentials" },
+        { "key": "C", "text": "Filter rows in the browser after fetching everything" },
+        { "key": "D", "text": "Give every tenant the project owner role" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "The Data API removes the need for custom backend code, and row-level security enforces per-tenant isolation at the database so each tenant sees only its own rows."
+    },
+
+    {
+      "id": "4.1", "moduleKey": "data-integration", "type": "concept",
+      "prompt": "Synced tables move data in which direction?",
+      "choices": [
+        { "key": "A", "text": "Lakebase Postgres \u2192 Unity Catalog Delta" },
+        { "key": "B", "text": "Unity Catalog \u2192 Lakebase Postgres (reverse ETL)" },
+        { "key": "C", "text": "Lakebase \u2192 external object storage" },
+        { "key": "D", "text": "Between two Postgres branches only" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Synced tables are reverse ETL: they move data from Unity Catalog Delta tables into Lakebase Postgres so apps can serve it at low latency."
+    },
+    {
+      "id": "4.2", "moduleKey": "data-integration", "type": "concept",
+      "prompt": "Change Data Feed (CDF) moves data in which direction?",
+      "choices": [
+        { "key": "A", "text": "Lakebase Postgres \u2192 Unity Catalog Delta tables" },
+        { "key": "B", "text": "Unity Catalog \u2192 Lakebase Postgres" },
+        { "key": "C", "text": "Postgres \u2192 another Postgres database" },
+        { "key": "D", "text": "Delta \u2192 external Kafka topics" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "CDF captures row-level changes from Lakebase Postgres and writes them into Unity Catalog Delta tables for analytics and audit."
+    },
+    {
+      "id": "4.3", "moduleKey": "data-integration", "type": "fact",
+      "prompt": "What is the naming convention for a CDF destination (history) table?",
+      "choices": [
+        { "key": "A", "text": "{table_name}_cdf" },
+        { "key": "B", "text": "cdf_{table_name}" },
+        { "key": "C", "text": "lb_{table_name}_history" },
+        { "key": "D", "text": "{table_name}_changes_delta" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "The Delta history table follows the lb_{table_name}_history convention."
+    },
+    {
+      "id": "4.4", "moduleKey": "data-integration", "type": "fact",
+      "prompt": "Which system column indicates the type of change in a CDF history table?",
+      "choices": [
+        { "key": "A", "text": "_change_op" },
+        { "key": "B", "text": "_pg_change_type (insert, delete, update_preimage, update_postimage)" },
+        { "key": "C", "text": "operation_code" },
+        { "key": "D", "text": "_delta_commit_type" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "The _pg_change_type column records the change type: insert, delete, update_preimage, or update_postimage."
+    },
+    {
+      "id": "4.5", "moduleKey": "data-integration", "type": "concept",
+      "prompt": "How many rows does CDF write for a single UPDATE statement affecting one row?",
+      "choices": [
+        { "key": "A", "text": "One row with the new values only" },
+        { "key": "B", "text": "Two rows: update_preimage + update_postimage" },
+        { "key": "C", "text": "Three rows: delete + insert + commit marker" },
+        { "key": "D", "text": "Zero \u2014 updates are not captured" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "An UPDATE produces two CDF rows \u2014 the pre-image (old values) and the post-image (new values) \u2014 so you can reconstruct exactly what changed."
+    },
+    {
+      "id": "4.6", "moduleKey": "data-integration", "type": "fact",
+      "prompt": "Approximately how often does CDF flush changes to Delta?",
+      "choices": [
+        { "key": "A", "text": "In real time, synchronously with each commit" },
+        { "key": "B", "text": "Roughly every 15 seconds" },
+        { "key": "C", "text": "Every 5 minutes" },
+        { "key": "D", "text": "Once per hour" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "CDF flushes captured changes to Delta approximately every 15 seconds \u2014 near real time, but not synchronous with each commit."
+    },
+    {
+      "id": "4.7", "moduleKey": "data-integration", "type": "scenario",
+      "prompt": "A table that has CDF enabled is renamed in Postgres. What happens to the feed?",
+      "choices": [
+        { "key": "A", "text": "The feed stops and must be recreated" },
+        { "key": "B", "text": "The feed continues; the Delta table keeps its original lb_<original>_history name" },
+        { "key": "C", "text": "A second history table is created and the old one is deleted" },
+        { "key": "D", "text": "All historical rows are rewritten with the new name" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "CDF is resilient to renames: the feed continues uninterrupted and the Delta history table retains its original lb_<original>_history name."
+    },
+
+    {
+      "id": "5.1", "moduleKey": "performance", "type": "concept",
+      "prompt": "How do autoscaling and scale-to-zero differ?",
+      "choices": [
+        { "key": "A", "text": "They are two names for the same feature" },
+        { "key": "B", "text": "Autoscaling adjusts active compute with load; scale-to-zero suspends compute entirely when idle" },
+        { "key": "C", "text": "Autoscaling only adds storage; scale-to-zero only adds compute" },
+        { "key": "D", "text": "Scale-to-zero increases compute; autoscaling decreases it" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Autoscaling tunes the amount of active compute to match load, while scale-to-zero fully suspends compute during idle periods so you pay nothing for compute then."
+    },
+    {
+      "id": "5.2", "moduleKey": "performance", "type": "fact",
+      "prompt": "What is the typical reactivation latency when resuming from a scaled-to-zero (suspended) state?",
+      "choices": [
+        { "key": "A", "text": "A few hundred milliseconds" },
+        { "key": "B", "text": "About 30 seconds" },
+        { "key": "C", "text": "Two to three minutes" },
+        { "key": "D", "text": "It requires a manual restart" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Reactivation from suspended takes only a few hundred milliseconds, so scale-to-zero savings don't impose a noticeable cold start."
+    },
+    {
+      "id": "5.3", "moduleKey": "performance", "type": "fact",
+      "prompt": "What is the maximum compute size that supports scale-to-zero?",
+      "choices": [
+        { "key": "A", "text": "4 CU" },
+        { "key": "B", "text": "8 CU" },
+        { "key": "C", "text": "16 CU" },
+        { "key": "D", "text": "32 CU" }
+      ],
+      "correctAnswer": "D",
+      "explanation": "Scale-to-zero is supported for compute up to 32 CU."
+    },
+    {
+      "id": "5.4", "moduleKey": "performance", "type": "fact",
+      "prompt": "What is the maximum number of read replicas per branch?",
+      "choices": [
+        { "key": "A", "text": "2" },
+        { "key": "B", "text": "6" },
+        { "key": "C", "text": "12" },
+        { "key": "D", "text": "Unlimited" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "A branch supports up to 6 read replicas for fanning out read-heavy workloads."
+    },
+    {
+      "id": "5.5", "moduleKey": "performance", "type": "concept",
+      "prompt": "How much additional storage does a read replica consume?",
+      "choices": [
+        { "key": "A", "text": "A full copy of the primary's storage" },
+        { "key": "B", "text": "Half the primary's storage" },
+        { "key": "C", "text": "None \u2014 replicas share the same storage layer" },
+        { "key": "D", "text": "It depends on the replication lag" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Read replicas are created instantly with no data copy because they share the same storage layer, so they add no additional storage cost."
+    },
+    {
+      "id": "5.6", "moduleKey": "performance", "type": "gotcha",
+      "prompt": "Can a High Availability (HA) endpoint use scale-to-zero?",
+      "choices": [
+        { "key": "A", "text": "Yes, HA and scale-to-zero work together automatically" },
+        { "key": "B", "text": "No \u2014 HA cannot scale to zero; you must pause manually, and the endpoint becomes unavailable" },
+        { "key": "C", "text": "Yes, but only for replicas, not the primary" },
+        { "key": "D", "text": "Only if the idle timeout is set above 24 hours" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "This is a common pitfall: HA endpoints cannot use scale-to-zero. To pause an HA deployment you must do it manually, and the endpoint is unavailable while paused."
+    },
+    {
+      "id": "5.7", "moduleKey": "performance", "type": "scenario",
+      "prompt": "An app has heavy traffic 8am\u20136pm on weekdays and near-zero traffic otherwise. Which scaling strategy fits best?",
+      "choices": [
+        { "key": "A", "text": "A fixed large instance running 24/7" },
+        { "key": "B", "text": "Autoscaling + scale-to-zero" },
+        { "key": "C", "text": "Manual resize twice a day" },
+        { "key": "D", "text": "Six read replicas running continuously" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Autoscaling matches compute to the daytime load, while scale-to-zero eliminates compute cost during the near-zero off hours \u2014 together they fit a spiky weekday pattern."
+    },
+
+    {
+      "id": "6.1", "moduleKey": "ai-ml", "type": "fact",
+      "prompt": "What powers Databricks Online Feature Stores?",
+      "choices": [
+        { "key": "A", "text": "A SQL warehouse" },
+        { "key": "B", "text": "Lakebase (an autoscaling project)" },
+        { "key": "C", "text": "Redis Enterprise" },
+        { "key": "D", "text": "Delta Live Tables" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Online Feature Stores are backed by Lakebase (an autoscaling project), serving features to models at low latency."
+    },
+    {
+      "id": "6.2", "moduleKey": "ai-ml", "type": "fact",
+      "prompt": "Which agent frameworks can store agent memory in Lakebase?",
+      "choices": [
+        { "key": "A", "text": "LangGraph and the OpenAI Agents SDK" },
+        { "key": "B", "text": "Only Databricks-proprietary agents" },
+        { "key": "C", "text": "TensorFlow and PyTorch" },
+        { "key": "D", "text": "Airflow and dbt" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "Lakebase serves as durable, transactional agent memory for frameworks including LangGraph and the OpenAI Agents SDK."
+    },
+    {
+      "id": "6.3", "moduleKey": "ai-ml", "type": "fact",
+      "prompt": "Which three extensions power Lakebase Search?",
+      "choices": [
+        { "key": "A", "text": "pgvector, pg_trgm, postgis" },
+        { "key": "B", "text": "lakebase_vector, lakebase_text, lakebase_tokenizer" },
+        { "key": "C", "text": "vector_search, bm25, hybrid" },
+        { "key": "D", "text": "faiss, elastic, lucene" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Lakebase Search is provided by lakebase_vector (ANN), lakebase_text (BM25), and lakebase_tokenizer."
+    },
+    {
+      "id": "6.4", "moduleKey": "ai-ml", "type": "fact",
+      "prompt": "What index algorithm and scale does lakebase_vector provide?",
+      "choices": [
+        { "key": "A", "text": "HNSW, up to 1M vectors" },
+        { "key": "B", "text": "Brute-force scan only" },
+        { "key": "C", "text": "IVF + RaBitQ, 1B+ vectors, 50\u2013100\u00d7 faster than HNSW" },
+        { "key": "D", "text": "LSH, up to 10M vectors" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "lakebase_vector uses an IVF + RaBitQ index that scales beyond 1 billion vectors and is roughly 50\u2013100\u00d7 faster than HNSW."
+    },
+    {
+      "id": "6.5", "moduleKey": "ai-ml", "type": "concept",
+      "prompt": "What is the relationship between lakebase_vector and pgvector?",
+      "choices": [
+        { "key": "A", "text": "It replaces pgvector with incompatible syntax" },
+        { "key": "B", "text": "It is a drop-in companion \u2014 same types, operators, and syntax" },
+        { "key": "C", "text": "It requires converting all vectors to a proprietary format" },
+        { "key": "D", "text": "They cannot be used in the same database" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "lakebase_vector is a drop-in companion to pgvector \u2014 it uses the same column types, operators, and query syntax, so existing pgvector code works."
+    },
+    {
+      "id": "6.6", "moduleKey": "ai-ml", "type": "fact",
+      "prompt": "Which ranking algorithm does lakebase_text use?",
+      "choices": [
+        { "key": "A", "text": "TF-IDF with linear scan" },
+        { "key": "B", "text": "Cosine similarity on embeddings" },
+        { "key": "C", "text": "BM25 with Block-Max WAND top-K pushdown" },
+        { "key": "D", "text": "PageRank" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "lakebase_text ranks with BM25 and uses Block-Max WAND for efficient top-K pushdown."
+    },
+    {
+      "id": "6.7", "moduleKey": "ai-ml", "type": "scenario",
+      "prompt": "A RAG app must match both exact product codes and natural-language questions. Which retrieval approach is best?",
+      "choices": [
+        { "key": "A", "text": "Vector search only" },
+        { "key": "B", "text": "Keyword search only" },
+        { "key": "C", "text": "Hybrid search (vector + keyword combined)" },
+        { "key": "D", "text": "A LIKE '%...%' scan" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Exact tokens like product codes favor keyword (BM25) matching, while natural-language meaning favors vector similarity. Hybrid search combines both and generally outperforms either alone."
+    },
+
+    {
+      "id": "7.1", "moduleKey": "operations", "type": "concept",
+      "prompt": "How do HA and DR differ by failure domain?",
+      "choices": [
+        { "key": "A", "text": "HA protects against AZ/compute failures within a region; DR protects against regional outages" },
+        { "key": "B", "text": "HA protects against regional outages; DR protects against single-node failures" },
+        { "key": "C", "text": "They protect against the same failures with different names" },
+        { "key": "D", "text": "HA is for storage, DR is for networking" }
+      ],
+      "correctAnswer": "A",
+      "explanation": "HA covers availability-zone and compute failures within a region; DR covers whole-region outages via a secondary region."
+    },
+    {
+      "id": "7.2", "moduleKey": "operations", "type": "fact",
+      "prompt": "How is HA failover triggered?",
+      "choices": [
+        { "key": "A", "text": "Manually by an operator" },
+        { "key": "B", "text": "Automatically, based on continuous health monitoring" },
+        { "key": "C", "text": "On a fixed daily schedule" },
+        { "key": "D", "text": "Only after opening a support ticket" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "HA failover is automatic \u2014 continuous health monitoring detects failures and fails over without operator intervention."
+    },
+    {
+      "id": "7.3", "moduleKey": "operations", "type": "fact",
+      "prompt": "How is DR failover triggered?",
+      "choices": [
+        { "key": "A", "text": "Automatically, like HA" },
+        { "key": "B", "text": "Manually \u2014 it is a business decision because the secondary may lag" },
+        { "key": "C", "text": "By the storage layer with zero human input" },
+        { "key": "D", "text": "It cannot be triggered; data is simply lost" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "DR failover is manual: because the secondary region may lag the primary, promoting it is a deliberate business decision."
+    },
+    {
+      "id": "7.4", "moduleKey": "operations", "type": "concept",
+      "prompt": "What does instant restore do?",
+      "choices": [
+        { "key": "A", "text": "Overwrites the production branch in place from a backup" },
+        { "key": "B", "text": "Creates a branch from any point in time within the history window" },
+        { "key": "C", "text": "Exports the database to object storage" },
+        { "key": "D", "text": "Rolls back only the most recent transaction" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Instant restore uses copy-on-write to create a new branch from any point in time within the retention window \u2014 available immediately, without a lengthy restore."
+    },
+    {
+      "id": "7.5", "moduleKey": "operations", "type": "fact",
+      "prompt": "What is the maximum history retention window?",
+      "choices": [
+        { "key": "A", "text": "24 hours" },
+        { "key": "B", "text": "7 days" },
+        { "key": "C", "text": "30 days" },
+        { "key": "D", "text": "1 year" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "History retention is up to 30 days, which bounds how far back instant restore and point-in-time branching can reach."
+    },
+    {
+      "id": "7.6", "moduleKey": "operations", "type": "scenario",
+      "prompt": "A bad migration ran at 3pm and was discovered at 4pm. You need the 2:55pm state for only the affected tables, without losing good writes elsewhere. What do you do?",
+      "choices": [
+        { "key": "A", "text": "Restore the whole production branch to 2:55pm, discarding all later writes" },
+        { "key": "B", "text": "Create an instant-restore branch from 2:55pm and selectively copy the corrected data back" },
+        { "key": "C", "text": "Wait for the next nightly backup" },
+        { "key": "D", "text": "Delete and recreate the project" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Create an instant-restore branch at 2:55pm, then selectively copy the corrected rows for the affected tables back into the working branch \u2014 preserving good writes made after 3pm elsewhere."
+    },
+
+    {
+      "id": "8.1", "moduleKey": "security", "type": "applied",
+      "prompt": "What is the correct way to create a Postgres role for a Databricks user?",
+      "choices": [
+        { "key": "A", "text": "CREATE USER email WITH PASSWORD '...'" },
+        { "key": "B", "text": "Use the databricks_auth extension: databricks_create_role(email, 'USER')" },
+        { "key": "C", "text": "Add the user to pg_superuser" },
+        { "key": "D", "text": "Create an entry in a users table" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "The databricks_auth extension maps Databricks identities to Postgres roles. For a user you call databricks_create_role(email, 'USER')."
+    },
+    {
+      "id": "8.2", "moduleKey": "security", "type": "gotcha",
+      "prompt": "What happens if you expose a table through the Data API without row-level security?",
+      "choices": [
+        { "key": "A", "text": "Access is denied by default until RLS is added" },
+        { "key": "B", "text": "Lakebase warns that all authenticated users can see ALL rows" },
+        { "key": "C", "text": "Only the project owner can read the table" },
+        { "key": "D", "text": "The table is automatically partitioned by caller" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Without RLS, every authenticated user can read all rows \u2014 Lakebase explicitly warns about this. RLS is how you enforce per-tenant/per-user isolation."
+    },
+    {
+      "id": "8.3", "moduleKey": "security", "type": "fact",
+      "prompt": "When creating a role for a service principal, which identity name must you use?",
+      "choices": [
+        { "key": "A", "text": "The service principal's display name" },
+        { "key": "B", "text": "The application ID (UUID), not the display name" },
+        { "key": "C", "text": "The workspace URL" },
+        { "key": "D", "text": "The owner's email address" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Service principal roles are created with the application ID (a UUID), not the human-readable display name."
+    },
+    {
+      "id": "8.4", "moduleKey": "security", "type": "applied",
+      "prompt": "What GRANT does the Data API authenticator role need to serve a given role?",
+      "choices": [
+        { "key": "A", "text": "GRANT ALL PRIVILEGES ON DATABASE TO authenticator" },
+        { "key": "B", "text": "GRANT \"user\" TO authenticator" },
+        { "key": "C", "text": "GRANT authenticator TO postgres" },
+        { "key": "D", "text": "No grant is needed" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "The authenticator role must be able to assume the target role, which you enable with GRANT \"user\" TO authenticator (keeping each role's privileges minimal)."
+    },
+    {
+      "id": "8.5", "moduleKey": "security", "type": "fact",
+      "prompt": "Which Infrastructure-as-Code tools can provision Lakebase?",
+      "choices": [
+        { "key": "A", "text": "Only the web UI" },
+        { "key": "B", "text": "Only Terraform" },
+        { "key": "C", "text": "CLI, Python/Java/Go SDKs, Databricks Asset Bundles, and Terraform" },
+        { "key": "D", "text": "Only the REST API" }
+      ],
+      "correctAnswer": "C",
+      "explanation": "Lakebase supports a full range of IaC: the CLI, the Python/Java/Go SDKs, Databricks Asset Bundles, and Terraform."
+    },
+    {
+      "id": "8.6", "moduleKey": "security", "type": "scenario",
+      "prompt": "What is the minimum security posture you'd recommend for a production, multi-tenant Lakebase app?",
+      "choices": [
+        { "key": "A", "text": "Share the owner role and rely on application-layer checks" },
+        { "key": "B", "text": "OAuth roles + row-level security + minimal GRANTs + per-app roles" },
+        { "key": "C", "text": "A single long-lived password rotated yearly" },
+        { "key": "D", "text": "Disable SSL to simplify connections" }
+      ],
+      "correctAnswer": "B",
+      "explanation": "Production security combines OAuth-backed roles, row-level security for tenant isolation, least-privilege GRANTs, and dedicated per-app roles rather than shared elevated accounts."
+    }
+  ]
+}
