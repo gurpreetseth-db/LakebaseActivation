@@ -13,6 +13,9 @@ interface AppDataValue {
   isAdmin: boolean;
   setPartner: (p: Partner) => void;
   recordModule: (moduleKey: string, result: ModuleProgress) => void;
+  /** Forget this browser's profile. Saved results in Lakebase are kept and return on sign-in. */
+  signOut: () => void;
+  /** Permanently delete the partner's saved module results from Lakebase, then sign out. */
   reset: () => void;
 }
 
@@ -108,6 +111,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     },
     recordModule: (moduleKey, result) => {
       setProgress({ ...saveModuleProgress(moduleKey, result) });
+    },
+    signOut: () => {
+      resetAll();
+      setPartnerState(null);
+      setProgress({});
     },
     reset: () => {
       if (partner?.email) resetRemoteProgress(partner.email).catch(() => undefined);

@@ -21,7 +21,7 @@
     "adminEmails": ["gurpreet.sethi@databricks.com"],
     "leaderboard": { "enabled": true, "topN": 20 },
     "certificate": {
-      "enabled": true,
+      "enabled": false,
       "requireAllModules": true,
       "title": "Certificate of Lakebase Readiness",
       "issuer": "Databricks Partner Enablement",

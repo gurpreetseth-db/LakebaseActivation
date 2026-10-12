@@ -10,6 +10,8 @@ import { registerRoutes, type RoutesContext } from './routes.js';
 const config = loadConfig();
 const questions = loadQuestions();
 const ADMIN = config.program.adminEmails[0];
+// The shipped config has certificates switched off; these tests exercise the feature when enabled.
+const certConfig = { ...config, program: { ...config.program, certificate: { ...config.program.certificate, enabled: true } } };
 
 function fakeRepo(over: Partial<Record<keyof Repo, unknown>> = {}): Repo {
   const base = {
@@ -160,7 +162,7 @@ describe('graceful degradation without Lakebase', () => {
 
 describe('admin access', () => {
   let t: Awaited<ReturnType<typeof start>>;
-  beforeAll(async () => (t = await start({ repo: fakeRepo({ listPartners: vi.fn(() => Promise.resolve([partnerRow])), allProgress: vi.fn(() => Promise.resolve(allModules(90))) }) })));
+  beforeAll(async () => (t = await start({ config: certConfig, repo: fakeRepo({ listPartners: vi.fn(() => Promise.resolve([partnerRow])), allProgress: vi.fn(() => Promise.resolve(allModules(90))) }) })));
   afterAll(() => t.close());
 
   test('requires the platform-injected identity to be on the allow-list', async () => {
@@ -209,12 +211,19 @@ describe('leaderboard', () => {
 });
 
 describe('certificates', () => {
+  test('are unavailable when switched off in config', async () => {
+    const t = await start();
+    expect(config.program.certificate.enabled).toBe(false);
+    expect((await t.call('POST', '/api/certificate', { email: 'p@x.co' })).status).toBe(400);
+    await t.close();
+  });
+
   test('refuses ineligible partners with reasons, and does not issue', async () => {
     const repo = fakeRepo({
       listPartners: vi.fn(() => Promise.resolve([partnerRow])),
       allProgress: vi.fn(() => Promise.resolve(allModules(90).slice(0, 2))),
     });
-    const t = await start({ repo });
+    const t = await start({ config: certConfig, repo });
     const r = await t.call('POST', '/api/certificate', { email: 'p@x.co' });
     expect(r.status).toBe(409);
     expect(r.json.reasons.join(' ')).toMatch(/remaining modules/);
@@ -227,7 +236,7 @@ describe('certificates', () => {
       listPartners: vi.fn(() => Promise.resolve([partnerRow])),
       allProgress: vi.fn(() => Promise.resolve(allModules(95))),
     });
-    const t = await start({ repo });
+    const t = await start({ config: certConfig, repo });
     const r = await t.call('POST', '/api/certificate', { email: 'P@X.co' });
     expect(r.status).toBe(200);
     expect(r.json).toMatchObject({ name: 'Pat Partner', overall: 95, title: config.program.certificate.title });
@@ -238,7 +247,7 @@ describe('certificates', () => {
 
   test('verification rejects malformed ids without touching the database', async () => {
     const repo = fakeRepo();
-    const t = await start({ repo });
+    const t = await start({ config: certConfig, repo });
     expect((await t.call('GET', '/api/certificate/verify/not-a-uuid')).status).toBe(404);
     expect((await t.call('GET', "/api/certificate/verify/1' OR '1'='1")).status).toBe(404);
     expect(repo.getCertificate).not.toHaveBeenCalled();
@@ -252,7 +261,7 @@ describe('certificates', () => {
         Promise.resolve({ id: '11111111-1111-4111-8111-111111111111', name: 'Pat Partner', org: 'Acme', overall: 95, level: 'Expert', issuedAt: '2026-01-01T00:00:00.000Z' }),
       ),
     });
-    const t = await start({ repo });
+    const t = await start({ config: certConfig, repo });
     const r = await t.call('GET', '/api/certificate/verify/11111111-1111-4111-8111-111111111111');
     expect(r.json).toMatchObject({ valid: true, name: 'Pat Partner', level: 'Expert' });
     expect(r.text).not.toContain('@');

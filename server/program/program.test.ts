@@ -5,6 +5,8 @@ import { certificateEligibility, displayName, levelLabel, overallScore } from '.
 
 const config = loadConfig();
 const questions = loadQuestions();
+// Certificates ship switched off; the aggregation is tested with them enabled.
+const certConfig = { ...config, program: { ...config.program, certificate: { ...config.program.certificate, enabled: true } } };
 const allModules = (score: number) => Object.fromEntries(config.modules.map((m) => [m.key, score]));
 
 const partner = (email: string, over: Partial<PartnerRecord> = {}): PartnerRecord => ({
@@ -72,7 +74,7 @@ describe('admin', () => {
       prog('b@x.co', q.moduleKey, 20, { [q.id]: wrong }),
     ];
     const s = summarize({
-      config,
+      config: certConfig,
       questions,
       partners: [partner('a@x.co', { name: 'Ann A' }), partner('b@x.co', { name: 'Bob B', org: 'Other' }), partner('c@x.co')],
       progress,

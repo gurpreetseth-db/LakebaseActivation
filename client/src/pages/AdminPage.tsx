@@ -16,7 +16,7 @@ const stat = (label: string, value: number | string) => (
 );
 
 export function AdminPage() {
-  const { isAdmin } = useAppData();
+  const { isAdmin, config } = useAppData();
   const [s, setS] = useState<AdminSummary | null>(null);
   const [error, setError] = useState('');
 
@@ -68,12 +68,12 @@ export function AdminPage() {
 
       {s ? (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
             {stat('Partners', s.totals.partners)}
             {stat('Organizations', s.totals.organizations)}
             {stat('Active learners', s.totals.active)}
             {stat('Average readiness', `${s.totals.avgOverall}/100`)}
-            {stat('Certified', s.totals.certified)}
+            {config.program.certificate.enabled ? stat('Certified', s.totals.certified) : null}
           </div>
 
           <Card>
