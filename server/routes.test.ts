@@ -18,7 +18,6 @@ function fakeRepo(over: Partial<Record<keyof Repo, unknown>> = {}): Repo {
     upsertPartner: vi.fn((p: unknown) => Promise.resolve(p)),
     getProgress: vi.fn(() => Promise.resolve({})),
     recordAttempt: vi.fn(() => Promise.resolve()),
-    savePlan: vi.fn(() => Promise.resolve()),
     setLab: vi.fn(() => Promise.resolve()),
     getLabs: vi.fn(() => Promise.resolve({})),
     logAsk: vi.fn(() => Promise.resolve()),
@@ -318,23 +317,6 @@ describe('AI routes', () => {
     const q = questions[0];
     const ok = await t.call('POST', '/api/explain', { questionId: q.id, given: 'A' });
     expect(ok.json.explanation).toBe('LLM ANSWER');
-    await t.close();
-  });
-
-  test('plan is grounded in retrieved notes and saved per partner', async () => {
-    const repo = fakeRepo();
-    const t = await start({ repo });
-    const modules = config.modules.map((m, i) => ({ title: m.title, score: i * 10, level: 'Novice', attempted: i < 2 }));
-    const r = await t.call('POST', '/api/plan', {
-      partner: { name: 'Pat', email: 'p@x.co', org: 'Acme' },
-      overallScore: 40,
-      overallLevel: 'Developing',
-      modules,
-    });
-    expect(r.json.planMarkdown).toBe('LLM ANSWER');
-    const prompt = (t.llm.mock.calls[0] as unknown as [unknown, { messages: { content: string }[] }])[1].messages[0].content;
-    expect(prompt).toContain('Reference notes');
-    expect(repo.savePlan).toHaveBeenCalledWith('p@x.co', 40, 'LLM ANSWER');
     await t.close();
   });
 });

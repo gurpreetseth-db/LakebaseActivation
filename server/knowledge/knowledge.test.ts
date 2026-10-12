@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { loadConfig, loadDemo, loadFit, loadKnowledge, loadModules, loadPricing, loadQuestions } from '../content/loader.js';
 import { buildChunks, splitText } from './chunks.js';
-import { buildAskPrompt, buildPlanNotes, citationsFor } from './rag.js';
+import { buildAskPrompt, citationsFor } from './rag.js';
 import { search, syncChunks, toVector } from './store.js';
 import type { Queryable } from '../db/schema.js';
 
@@ -133,10 +133,5 @@ describe('rag', () => {
 
   test('an empty context is stated explicitly rather than invented', () => {
     expect(buildAskPrompt('q', [])).toContain('(no relevant context found)');
-  });
-
-  test('plan notes are empty without hits and bounded otherwise', () => {
-    expect(buildPlanNotes([{ module: 'M', hits: [] }])).toBe('');
-    expect(buildPlanNotes([{ module: 'M', hits: [{ ...hits[0], content: 'z'.repeat(1000) }] }]).length).toBeLessThan(600);
   });
 });

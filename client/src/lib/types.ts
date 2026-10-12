@@ -38,8 +38,6 @@ export interface AppConfig {
     endpointName: string;
     maxTokens: number;
     temperature: number;
-    planHeading: string;
-    planDescription: string;
   };
   modules: ModuleMeta[];
   questionTypes: Record<string, { label: string; icon: string }>;

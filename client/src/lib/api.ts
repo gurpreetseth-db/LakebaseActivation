@@ -192,26 +192,3 @@ export async function gradeModule(
   if (!res.ok) throw new Error(`Grading failed: ${res.status}`);
   return (await res.json()) as GradeResponse;
 }
-
-export interface PlanModuleInput {
-  title: string;
-  score: number;
-  level: string;
-  attempted: boolean;
-}
-
-export async function generatePlan(input: {
-  partner: { name: string; email: string; org: string };
-  overallScore: number;
-  overallLevel: string;
-  modules: PlanModuleInput[];
-}): Promise<string> {
-  const res = await fetch('/api/plan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  const data = (await res.json()) as { planMarkdown?: string; error?: string };
-  if (!res.ok) throw new Error(data.error || `Plan generation failed: ${res.status}`);
-  return data.planMarkdown ?? '';
-}

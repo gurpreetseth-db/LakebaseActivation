@@ -77,13 +77,6 @@ export function schemaStatements(schema: string): string[] {
        sources       JSONB NOT NULL DEFAULT '[]',
        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
      )`,
-    `CREATE TABLE IF NOT EXISTS ${s}.plans (
-       id            BIGSERIAL PRIMARY KEY,
-       email         TEXT NOT NULL REFERENCES ${s}.partners(email) ON DELETE CASCADE,
-       overall_score INTEGER NOT NULL,
-       markdown      TEXT NOT NULL,
-       created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
-     )`,
   ];
 }
 

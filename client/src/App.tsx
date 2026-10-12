@@ -21,7 +21,6 @@ import {
   LogOut,
   PlayCircle,
   ShieldCheck,
-  Sparkles,
   Trash2,
   Trophy,
   type LucideIcon,
@@ -30,7 +29,6 @@ import { AppDataProvider, useAppData } from '@/lib/AppData';
 import { Onboarding } from '@/pages/Onboarding';
 import { Dashboard } from '@/pages/Dashboard';
 import { ModulePage } from '@/pages/ModulePage';
-import { PlanPage } from '@/pages/PlanPage';
 import { LakebasePage } from '@/pages/LakebasePage';
 import { DemoPage } from '@/pages/DemoPage';
 import { FitPage } from '@/pages/FitPage';
@@ -63,7 +61,6 @@ function NavLinks() {
     { to: '/demo', label: 'Demo', icon: PlayCircle },
     { to: '/fit', label: 'Fit-checker', icon: ClipboardCheck },
     { to: '/pricing', label: 'Pricing', icon: CircleDollarSign },
-    { to: '/plan', label: 'Adoption plan', icon: Sparkles },
     ...(config.program.leaderboard.enabled ? [{ to: '/leaderboard', label: 'Leaderboard', icon: Trophy }] : []),
     ...(config.program.certificate.enabled ? [{ to: '/certificate', label: 'Certificate', icon: Award }] : []),
     { to: '/lakebase', label: 'Lakebase', icon: Database },
@@ -147,12 +144,12 @@ function Layout() {
       <header className="app-chrome sticky top-0 z-30 border-b border-white/10 px-4 shadow-md md:px-6 print:hidden">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center gap-3 py-3">
-            <Link to="/" className="flex items-center gap-2.5">
+            <Link to="/" className="flex min-w-0 items-center gap-2.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary shadow-sm">
                 <GraduationCap className="h-5 w-5 text-primary-foreground" />
               </span>
-              <span className="leading-tight">
-                <span className="block text-base font-semibold text-white">{config.branding.shortName}</span>
+              <span className="min-w-0 leading-tight">
+                <span className="block max-w-[11rem] truncate text-sm font-semibold text-white sm:max-w-none sm:text-base">{config.branding.shortName}</span>
                 <span className="hidden text-[11px] text-white/60 sm:block">{config.branding.org}</span>
               </span>
             </Link>
@@ -190,7 +187,6 @@ const router = createBrowserRouter([
     children: [
       { path: '/', element: <Dashboard /> },
       { path: '/module/:moduleKey', element: <ModulePage /> },
-      { path: '/plan', element: <PlanPage /> },
       { path: '/ask', element: <AskPage /> },
       { path: '/leaderboard', element: <LeaderboardPage /> },
       { path: '/certificate', element: <CertificatePage /> },

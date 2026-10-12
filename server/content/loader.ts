@@ -100,8 +100,6 @@ export const appConfigSchema = z.object({
     retrievalTopK: z.number().int().min(1).max(20),
     maxTokens: z.number(),
     temperature: z.number(),
-    planHeading: z.string(),
-    planDescription: z.string(),
   }),
   modules: z.array(moduleMetaSchema),
   questionTypes: z.record(z.string(), questionTypeSchema),

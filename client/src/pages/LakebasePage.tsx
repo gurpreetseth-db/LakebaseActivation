@@ -65,7 +65,7 @@ export function LakebasePage() {
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>
             Tables in <code>{t.schema}</code>: <code>partners</code>, <code>module_progress</code>,{' '}
-            <code>quiz_attempts</code>, <code>lab_checks</code> and <code>plans</code>.
+            <code>quiz_attempts</code>, <code>lab_checks</code>, <code>ask_log</code> and <code>knowledge_chunks</code>.
           </p>
           <p>
             The app&apos;s service principal creates and owns the schema (deploy first), uses a pooled connection with automatic

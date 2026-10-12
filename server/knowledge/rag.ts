@@ -20,11 +20,3 @@ export function buildAskPrompt(question: string, hits: Hit[]): string {
 export function citationsFor(hits: Hit[]): Citation[] {
   return hits.map((h, i) => ({ n: i + 1, title: h.title, source: h.source }));
 }
-
-/** Reference notes for the weakest modules, appended to the adoption-plan prompt. */
-export function buildPlanNotes(groups: { module: string; hits: Hit[] }[]): string {
-  const lines = groups
-    .filter((g) => g.hits.length > 0)
-    .map((g) => `${g.module}:\n${g.hits.map((h) => `- ${h.title}: ${h.content.replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')}`);
-  return lines.length ? `\n\nReference notes (use these for specifics, do not invent facts):\n${lines.join('\n\n')}` : '';
-}

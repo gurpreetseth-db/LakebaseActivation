@@ -1,5 +1,5 @@
 /**
- * Parameterised data access for partners, quiz progress and saved plans.
+ * Parameterised data access for partners, quiz progress, labs and the question log.
  * Every value is bound as a parameter; only the (validated) schema name is
  * interpolated. Identity is the lowercased email — there is no SSO yet, so this
  * is NOT a security boundary.
@@ -111,13 +111,6 @@ export function createRepo(db: Queryable, schema: string) {
         out[r.module_key as string] = { status: r.status as string, steps: detail.steps ?? [] };
       }
       return out;
-    },
-
-    async savePlan(emailRaw: string, overallScore: number, markdown: string): Promise<void> {
-      await db.query(
-        `INSERT INTO ${s}.plans (email, overall_score, markdown) VALUES ($1, $2, $3)`,
-        [normalizeEmail(emailRaw), overallScore, markdown],
-      );
     },
 
     async logAsk(email: string | null, question: string, answer: string, mode: string, sources: unknown): Promise<void> {

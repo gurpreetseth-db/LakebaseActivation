@@ -32,8 +32,8 @@
 
   "branding": {
     "appName": "Lakebase Partner Readiness",
-    "shortName": "Lakebase Readiness",
-    "tagline": "Guided, hands-on enablement for Databricks Lakebase \u2014 learn each capability, prove your knowledge, and get a personalized adoption plan.",
+    "shortName": "Lakebase Readiness For C&SI Partners",
+    "tagline": "Guided, hands-on enablement for Databricks Lakebase \u2014 learn each capability, prove your knowledge.",
     "org": "Databricks Partner Enablement",
     "docsBaseUrl": "https://docs.databricks.com/aws/en/oltp/projects"
   },
@@ -41,7 +41,7 @@
   "onboarding": {
     "enabled": true,
     "heading": "Welcome, partner",
-    "subheading": "Tell us who you are so we can track your progress and tailor your adoption plan.",
+    "subheading": "Tell us who you are so we can track your progress.",
     "fields": [
       { "key": "name", "label": "Full name", "type": "text", "required": true, "placeholder": "Jordan Rivera" },
       { "key": "email", "label": "Work email", "type": "email", "required": true, "placeholder": "jordan@partner.com" },
@@ -66,9 +66,7 @@
     "embeddingDimensions": 1024,
     "retrievalTopK": 5,
     "maxTokens": 1200,
-    "temperature": 0.3,
-    "planHeading": "Your personalized Lakebase adoption plan",
-    "planDescription": "Generated from your module scores. Review with your Databricks partner contact before acting."
+    "temperature": 0.3
   },
 
   "modules": [

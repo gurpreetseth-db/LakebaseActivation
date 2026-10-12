@@ -72,7 +72,7 @@ export function Onboarding() {
               Start learning
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Your email links your progress across devices and personalizes your adoption plan.
+              Your email links your progress across devices.
             </p>
           </CardContent>
         </Card>

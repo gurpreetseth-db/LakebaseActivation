@@ -18,7 +18,6 @@ thing they are using.
 | **Demo** (`/demo`) | Guided walkthrough of the Brickhouse inventory demo on Databricks Apps + Lakebase |
 | **Fit-checker** (`/fit`) | Eight-question qualification tool: blockers (red), risks (yellow), verdict |
 | **Pricing** (`/pricing`) | The billing model and a link to the official pricing page (no rates are copied) |
-| **Adoption plan** (`/plan`) | AI plan grounded in retrieved notes for the partner's weakest modules; saved per partner |
 | **Leaderboard** (`/leaderboard`) | Opt-in only; shows first name, last initial and organization |
 | **Certificate** (`/certificate`) | Eligibility is decided on the server from saved scores; printable; publicly verifiable at `/verify/<id>` |
 | **Lakebase** (`/lakebase`) | Live connection status, target project/branch/database/schema, latency |
@@ -32,7 +31,7 @@ Identity is the partner's email (no SSO). See [Security notes](#security-notes).
 React + TypeScript (Vite)  ──►  Express (AppKit)  ──►  Lakebase Postgres  (project/branch/database from config)
    client/                        server/                 schema: partner_activation
                                     │                       partners · module_progress · quiz_attempts
-                                    │                       lab_checks · plans · ask_log · certificates
+                                    │                       lab_checks · ask_log · certificates
                                     │                       knowledge_chunks (pgvector + full-text)
                                     ├──► Model Serving (chat, on behalf of the user)
                                     └──► Model Serving (embeddings, app identity)

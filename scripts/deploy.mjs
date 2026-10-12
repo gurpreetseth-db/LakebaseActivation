@@ -10,7 +10,7 @@
  * BEFORE first start, so the SP creates and owns the Lakebase schema.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -37,10 +37,31 @@ try {
   exists = false;
 }
 
+// `databricks sync` never deletes files from the workspace, so a file removed locally would
+// otherwise stay on the server and still get built. List what is on the server, compare it with
+// the files sync would upload (git-tracked + untracked, minus ignored, minus deleted) and remove strays.
+function remoteFiles(dir, root = dir) {
+  const out = [];
+  for (const o of JSON.parse(dbx('workspace', 'list', dir, '-o', 'json'))) {
+    if (o.object_type === 'DIRECTORY') out.push(...remoteFiles(o.path, root));
+    else out.push(o.path.slice(root.length + 1));
+  }
+  return out;
+}
+function staleRemoteFiles(target) {
+  const local = new Set(
+    execFileSync('git', ['ls-files', '-co', '--exclude-standard'], { encoding: 'utf8' })
+      .split('\n')
+      .filter((f) => f && existsSync(f)),
+  );
+  return remoteFiles(target).filter((f) => !local.has(f) && !f.startsWith('.git/'));
+}
+
 const plan = [
   exists ? `app ${appName} exists` : `create app ${appName}${space ? ` in space ${space}` : ' (no space)'}`,
   `bind postgres resource -> ${branch} / ${database}`,
   `grant CAN_QUERY on embedding endpoint ${config.ai.embeddingEndpoint} (non-fatal)`,
+  `remove files from ${target} that no longer exist locally (skip with --no-prune)`,
   `sync source -> ${target}`,
   `deploy ${appName}`,
 ];
@@ -89,6 +110,16 @@ if (config.ai.enabled && config.ai.embeddingEndpoint) {
   } catch (err) {
     console.warn(`WARNING: could not bind the embedding endpoint (${String(err.stderr ?? err.message).trim()}).`);
     console.warn('Ask Lakebase will use keyword search until the app can query that endpoint.');
+  }
+}
+
+if (!args.includes('--no-prune')) {
+  step('Removing stale files from the workspace copy');
+  const stale = staleRemoteFiles(target);
+  if (stale.length === 0) console.log('none');
+  for (const f of stale) {
+    console.log(`  delete ${f}`);
+    dbx('workspace', 'delete', `${target}/${f}`);
   }
 }
 

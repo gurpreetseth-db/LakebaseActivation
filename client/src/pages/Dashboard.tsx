@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Progress } from '@databricks/appkit-ui/react';
-import { ArrowRight, CheckCircle2, Sparkles, Target } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Target } from 'lucide-react';
 import { useAppData } from '@/lib/AppData';
 import { ModuleIcon } from '@/lib/icons';
 import { overallScore, completedCount, levelForScore, sortedModules } from '@/lib/scoring';
@@ -57,12 +57,6 @@ export function Dashboard() {
                   </Link>
                 </Button>
               ) : null}
-              <Button asChild variant="secondary" disabled={!anyAttempted}>
-                <Link to="/plan">
-                  <Sparkles className="mr-1.5 h-4 w-4" />
-                  Generate adoption plan
-                </Link>
-              </Button>
             </div>
           </div>
 
