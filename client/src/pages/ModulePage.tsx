@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import {
   Alert,
@@ -10,6 +10,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Progress,
   RadioGroup,
   RadioGroupItem,
   Label,
@@ -26,6 +27,7 @@ import {
   ExternalLink,
   FlaskConical,
   ListChecks,
+  Sparkles,
   Target,
   XCircle,
 } from 'lucide-react';
@@ -33,12 +35,14 @@ import { useAppData } from '@/lib/AppData';
 import { ModuleIcon } from '@/lib/icons';
 import { Markdown } from '@/lib/Markdown';
 import { LevelBadge } from '@/components/common';
-import { gradeModule } from '@/lib/api';
+import { explainAnswer, fetchLabs, gradeModule, saveLab } from '@/lib/api';
+import { loadLabsLocal, saveLabLocal } from '@/lib/storage';
+import { shuffle } from '@/lib/shuffle';
 import type { GradeResponse } from '@/lib/types';
 
 export function ModulePage() {
   const { moduleKey = '' } = useParams();
-  const { config, modules, questions, progress, recordModule } = useAppData();
+  const { config, modules, questions, progress, partner, recordModule } = useAppData();
 
   const meta = config.modules.find((m) => m.key === moduleKey);
   const content = modules[moduleKey];
@@ -52,6 +56,28 @@ export function ModulePage() {
   const [graded, setGraded] = useState<GradeResponse | null>(null);
   const [grading, setGrading] = useState(false);
   const [error, setError] = useState('');
+  // Bumped on every retake so question and choice order change between attempts.
+  const [attempt, setAttempt] = useState(0);
+  const [explanations, setExplanations] = useState<Record<string, string>>({});
+  const [explaining, setExplaining] = useState('');
+  const [labSteps, setLabSteps] = useState<number[]>(() => loadLabsLocal()[moduleKey] ?? []);
+  const [labNote, setLabNote] = useState('');
+
+  const email = partner?.email;
+  useEffect(() => {
+    if (!email) return;
+    fetchLabs(email)
+      .then((labs) => {
+        const remote = labs[moduleKey]?.steps;
+        if (remote) setLabSteps(remote);
+      })
+      .catch(() => undefined);
+  }, [email, moduleKey]);
+
+  const orderedQuestions = useMemo(
+    () => (attempt === 0 ? moduleQuestions : shuffle(moduleQuestions, attempt * 7919 + moduleKey.length)),
+    [moduleQuestions, attempt, moduleKey],
+  );
 
   if (!meta || !content) {
     return (
@@ -72,7 +98,7 @@ export function ModulePage() {
     setGrading(true);
     setError('');
     try {
-      const result = await gradeModule(moduleKey, answers);
+      const result = await gradeModule(moduleKey, answers, partner?.email);
       setGraded(result);
       recordModule(moduleKey, {
         attempted: true,
@@ -89,7 +115,29 @@ export function ModulePage() {
     }
   };
 
+  const toggleLabStep = (i: number) => {
+    const next = labSteps.includes(i) ? labSteps.filter((n) => n !== i) : [...labSteps, i].sort((a, b) => a - b);
+    setLabSteps(next);
+    saveLabLocal(moduleKey, next);
+    setLabNote('');
+    if (email) saveLab(email, moduleKey, next).catch(() => setLabNote('Saved on this device only.'));
+  };
+
+  const explain = async (questionId: string, given: string) => {
+    setExplaining(questionId);
+    try {
+      const text = await explainAnswer(questionId, given);
+      setExplanations((e) => ({ ...e, [questionId]: text }));
+    } catch (err) {
+      setExplanations((e) => ({ ...e, [questionId]: `Couldn’t generate an explanation: ${(err as Error).message}` }));
+    } finally {
+      setExplaining('');
+    }
+  };
+
   const retake = () => {
+    setAttempt((n) => n + 1);
+    setExplanations({});
     setGraded(null);
     setAnswers({});
     setError('');
@@ -189,9 +237,26 @@ export function ModulePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">{content.lab.intro}</p>
+              <div>
+                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>
+                    {labSteps.length} of {content.lab.steps.length} steps done (self-reported)
+                  </span>
+                  {labSteps.length === content.lab.steps.length ? <Badge>Lab complete</Badge> : null}
+                </div>
+                <Progress value={(labSteps.length / content.lab.steps.length) * 100} />
+                {labNote ? <p className="mt-1 text-xs text-muted-foreground">{labNote}</p> : null}
+              </div>
               <ol className="space-y-3">
                 {content.lab.steps.map((step, i) => (
-                  <li key={i} className="flex gap-3">
+                  <li key={step} className="flex gap-3">
+                    <input
+                      type="checkbox"
+                      aria-label={`Mark step ${i + 1} done`}
+                      checked={labSteps.includes(i)}
+                      onChange={() => toggleLabStep(i)}
+                      className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-primary"
+                    />
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
                       {i + 1}
                     </span>
@@ -228,10 +293,11 @@ export function ModulePage() {
             </Alert>
           ) : null}
 
-          {moduleQuestions.map((q, idx) => {
+          {orderedQuestions.map((q, idx) => {
             const r = resultById.get(q.id);
             const selected = answers[q.id];
             const tm = typeMeta(q.type);
+            const choices = attempt === 0 ? q.choices : shuffle(q.choices, attempt * 104729 + idx);
             return (
               <Card key={q.id}>
                 <CardHeader>
@@ -252,7 +318,7 @@ export function ModulePage() {
                     disabled={Boolean(graded)}
                     className="space-y-2"
                   >
-                    {q.choices.map((c) => {
+                    {choices.map((c, ci) => {
                       const isCorrect = graded && r?.correctAnswer === c.key;
                       const isWrongPick = graded && r?.given === c.key && !r?.correct;
                       return (
@@ -268,7 +334,7 @@ export function ModulePage() {
                         >
                           <RadioGroupItem value={c.key} id={`${q.id}-${c.key}`} className="mt-0.5" />
                           <Label htmlFor={`${q.id}-${c.key}`} className="flex-1 cursor-pointer font-normal leading-relaxed">
-                            <span className="font-semibold">{c.key}.</span> {c.text}
+                            <span className="font-semibold">{String.fromCharCode(65 + ci)}.</span> {c.text}
                           </Label>
                           {isCorrect ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-success" /> : null}
                           {isWrongPick ? <XCircle className="mt-0.5 h-4 w-4 text-destructive" /> : null}
@@ -280,6 +346,25 @@ export function ModulePage() {
                     <div className="mt-3 rounded-md bg-muted p-3 text-sm text-muted-foreground">
                       <span className="font-semibold text-foreground">Explanation. </span>
                       {r.explanation}
+                      {!r.correct && config.ai.enabled && r.given ? (
+                        <div className="mt-2">
+                          {explanations[q.id] ? (
+                            <div className="rounded-md border bg-card p-3">
+                              <Markdown text={explanations[q.id]} />
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={explaining === q.id}
+                              onClick={() => void explain(q.id, r.given as string)}
+                            >
+                              <Sparkles className="mr-1.5 h-4 w-4" />
+                              {explaining === q.id ? 'Thinking…' : 'Explain why I was wrong'}
+                            </Button>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                 </CardContent>

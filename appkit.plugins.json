@@ -376,7 +376,8 @@
           }
         ],
         "optional": []
-      }
+      },
+      "requiredByTemplate": true
     }
   },
   "scaffolding": {

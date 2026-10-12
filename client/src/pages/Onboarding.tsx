@@ -68,7 +68,7 @@ export function Onboarding() {
               Start learning
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Your details stay in this browser and personalize your adoption plan.
+              Your email links your progress across devices and personalizes your adoption plan.
             </p>
           </CardContent>
         </Card>

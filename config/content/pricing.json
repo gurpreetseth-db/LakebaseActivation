@@ -1,0 +1,25 @@
+{
+  "$comment": "Pricing page content. Rates are intentionally NOT stored here: they change and vary by region, so the app links to the public pricing page.",
+  "title": "Understanding Lakebase pricing",
+  "intro": "Lakebase pricing is usage-based and region-specific. Use this page to understand the model, then open the official page to see current rates for your regions.",
+  "pageUrl": "https://www.databricks.com/product/pricing/lakebase",
+  "regions": [
+    { "cloud": "AWS", "region": "Asia Pacific (Sydney)", "code": "ap-southeast-2" },
+    { "cloud": "Azure", "region": "Australia Southeast", "code": "australiasoutheast" }
+  ],
+  "regionNote": "Select your cloud and region on the official page. Displayed pricing does not guarantee that Lakebase is available in that region — confirm regional availability separately.",
+  "meters": [
+    { "name": "Compute", "unit": "DBU, billed per second", "detail": "Charged only while the endpoint is active. With scale to zero, an idle database costs nothing for compute. Autoscaling means you pay for the CU actually in use, between the minimum and maximum you set." },
+    { "name": "Storage", "unit": "GB-month", "detail": "Charged for the data stored, including branches that hold changes. Because branches are copy-on-write, a new branch adds little storage until it diverges." }
+  ],
+  "tips": [
+    "Set a low minimum CU and a sensible maximum, and keep scale to zero on for development and demo projects.",
+    "Delete or let short-lived branches expire (use a TTL) so abandoned branches do not accumulate storage.",
+    "Estimate cost from your own peak and average CU and your data size, then confirm with the official calculator."
+  ],
+  "usageQuery": {
+    "title": "See your Lakebase usage in system tables",
+    "note": "Check column and product names against the current billing system-table documentation before relying on this query.",
+    "sql": "SELECT usage_date, sku_name, SUM(usage_quantity) AS usage_quantity\nFROM system.billing.usage\nWHERE billing_origin_product = 'DATABASE'\n  AND usage_date >= DATE_SUB(CURRENT_DATE(), 30)\nGROUP BY usage_date, sku_name\nORDER BY usage_date DESC;"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "$comment": "Guided demo walkthrough. Edit freely; validated at startup by server/content/loader.ts. Written for partners — keep Databricks-internal material out.",
+  "title": "Demo walkthrough: an operational app on Lakebase",
+  "intro": "Walk through a realistic inventory-ordering app that runs on Databricks Apps with Lakebase as its database. Use it to see low-latency OLTP, branching and autoscaling working together, then adapt the same flow for your own customer demos.",
+  "disclaimer": "The reference demo is a learning sample, not production code.",
+  "links": [
+    { "label": "Brickhouse Brands demo (React + FastAPI + Lakebase)", "url": "https://github.com/databricks-solutions/brickhouse-brands-demo" },
+    { "label": "Lakebase POC accelerator (reverse-ETL proof of concept)", "url": "https://github.com/databricks-solutions/lakebase-poc-accelerator" }
+  ],
+  "sections": [
+    {
+      "key": "story",
+      "title": "1. The story",
+      "body": [
+        "A retailer takes orders from stores. Orders must be written and read in milliseconds, while analysts also want the same data in the lakehouse. That is the pattern Lakebase is built for: a transactional Postgres database inside the Data Intelligence Platform.",
+        "Say it in one sentence: *apps get a real Postgres database, and the data stays governed alongside analytics and AI — no ETL pipeline in between.*"
+      ],
+      "steps": []
+    },
+    {
+      "key": "architecture",
+      "title": "2. Architecture",
+      "body": [
+        "A Databricks App serves a React and TypeScript front end with a Python FastAPI back end. The back end talks to a Lakebase Postgres project with short-lived OAuth credentials that the platform refreshes for you.",
+        "Because compute and storage are separate, the database scales with load, suspends when idle and wakes in a fraction of a second."
+      ],
+      "steps": []
+    },
+    {
+      "key": "click-path",
+      "title": "3. Click path in the app",
+      "body": ["Run these in order. Each step maps to a Lakebase talking point."],
+      "steps": [
+        "Add a few items to the cart and choose a delivery store — *a normal transactional write path.*",
+        "Submit the order and watch it appear in the orders list immediately — *read-after-write latency is low.*",
+        "Open an existing order, change it, and save — *updates and row-level reads on Postgres.*",
+        "Filter the list by status and by dropdown — *standard SQL with indexes, nothing proprietary.*",
+        "Open the Insights view on the second page — *operational data feeding analytics.*"
+      ]
+    },
+    {
+      "key": "console",
+      "title": "4. Tour the Lakebase console",
+      "body": ["Switch from the app to the Lakebase project to show what is running underneath."],
+      "steps": [
+        "Open the project **Dashboard** and point out usage and the endpoint's autoscaling range.",
+        "Open **Branches**. Show that a branch can be created from production or from a point in time. Explain it is copy-on-write, so it is instant and uses no extra storage up front.",
+        "Open **Tables** and show the order tables in the database's schema.",
+        "Optional: create your own small project live to show how quickly it starts, then create a branch from it."
+      ]
+    },
+    {
+      "key": "wrap",
+      "title": "5. Wrap-up talking points",
+      "body": [
+        "**Developer experience:** branches give every developer or CI run an isolated copy of the database.",
+        "**Cost:** compute is billed while active and drops to zero when idle, so spiky and development workloads are cheap.",
+        "**Platform:** the same data is governed with Unity Catalog and can flow to or from the lakehouse with synced tables and Lakehouse Sync."
+      ],
+      "steps": []
+    }
+  ]
+}

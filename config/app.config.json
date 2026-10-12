@@ -1,5 +1,34 @@
 {
-  "$comment": "SINGLE SOURCE OF TRUTH. Every tunable value lives here; code references these variables only. Edit this file (and config/content/*.json) and republish the app to change branding, modules, scoring, or the AI endpoint. Secrets and Databricks resource IDs are NOT configured here \u2014 they come from app.yaml / platform env.",
+  "$comment": "SINGLE SOURCE OF TRUTH. Every tunable value lives here; code references these variables only. Edit this file (and config/content/*.json) and republish the app to change branding, modules, scoring, the AI endpoint, or the Lakebase target (project/branch/database/schema). deployment.* drives scripts/deploy.mjs (empty space = no space; empty sourcePath = your workspace home). program.adminEmails is matched against the platform-injected x-forwarded-email (never sent to the browser). Secrets are NOT configured here \u2014 they come from app.yaml / platform env. The platform-injected LAKEBASE_ENDPOINT always wins over lakebase.endpoint.",
+
+  "lakebase": {
+    "enabled": true,
+    "project": "projects/agentic-memory",
+    "branch": "projects/agentic-memory/branches/production",
+    "database": "projects/agentic-memory/branches/production/databases/databricks-postgres",
+    "endpoint": "projects/agentic-memory/branches/production/endpoints/primary",
+    "schema": "partner_activation"
+  },
+
+  "deployment": {
+    "appName": "lakebase-partner-hub",
+    "description": "Guided Lakebase enablement for partners",
+    "space": "",
+    "sourcePath": ""
+  },
+
+  "program": {
+    "adminEmails": ["gurpreet.sethi@databricks.com"],
+    "leaderboard": { "enabled": true, "topN": 20 },
+    "certificate": {
+      "enabled": true,
+      "requireAllModules": true,
+      "title": "Certificate of Lakebase Readiness",
+      "issuer": "Databricks Partner Enablement",
+      "signatory": "Lakebase Partner Program"
+    },
+    "lakehouseSync": { "catalog": "", "schema": "", "cdfConfigId": "partner-activation-sync" }
+  },
 
   "branding": {
     "appName": "Lakebase Partner Readiness",
@@ -33,6 +62,9 @@
   "ai": {
     "enabled": true,
     "endpointName": "databricks-meta-llama-3-3-70b-instruct",
+    "embeddingEndpoint": "databricks-gte-large-en",
+    "embeddingDimensions": 1024,
+    "retrievalTopK": 5,
     "maxTokens": 1200,
     "temperature": 0.3,
     "planHeading": "Your personalized Lakebase adoption plan",

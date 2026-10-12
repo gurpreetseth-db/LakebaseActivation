@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { fetchConfig, fetchModules, fetchQuestions } from './api';
+import { fetchConfig, fetchIsAdmin, fetchLakebaseStatus, fetchModules, fetchQuestions, registerPartner, resetRemoteProgress } from './api';
 import { loadPartner, loadProgress, savePartner, saveModuleProgress, resetAll } from './storage';
-import type { AppConfig, ModulesContent, Question, Partner, Progress, ModuleProgress } from './types';
+import type { AppConfig, LakebaseStatus, ModulesContent, Question, Partner, Progress, ModuleProgress } from './types';
 
 interface AppDataValue {
   config: AppConfig;
@@ -9,6 +9,8 @@ interface AppDataValue {
   questions: Question[];
   partner: Partner | null;
   progress: Progress;
+  lakebase: LakebaseStatus | null;
+  isAdmin: boolean;
   setPartner: (p: Partner) => void;
   recordModule: (moduleKey: string, result: ModuleProgress) => void;
   reset: () => void;
@@ -26,6 +28,31 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [partner, setPartnerState] = useState<Partner | null>(() => loadPartner());
   const [progress, setProgress] = useState<Progress>(() => loadProgress());
+  const [lakebase, setLakebase] = useState<LakebaseStatus | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Pull saved progress from Lakebase for a known partner. Server data wins over
+  // the browser cache; any failure silently keeps the local copy.
+  const syncRemote = (p: Partner) => {
+    registerPartner(p)
+      .then(({ progress: remote }) => {
+        const merged = { ...loadProgress(), ...remote };
+        Object.entries(merged).forEach(([k, v]) => saveModuleProgress(k, v));
+        setProgress(merged);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        fetchLakebaseStatus().then(setLakebase).catch(() => undefined);
+      });
+  };
+
+  useEffect(() => {
+    fetchLakebaseStatus().then(setLakebase).catch(() => undefined);
+    fetchIsAdmin().then(setIsAdmin).catch(() => undefined);
+    const stored = loadPartner();
+    if (stored) syncRemote(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,14 +99,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     questions,
     partner,
     progress,
+    lakebase,
+    isAdmin,
     setPartner: (p) => {
       savePartner(p);
       setPartnerState(p);
+      syncRemote(p);
     },
     recordModule: (moduleKey, result) => {
       setProgress({ ...saveModuleProgress(moduleKey, result) });
     },
     reset: () => {
+      if (partner?.email) resetRemoteProgress(partner.email).catch(() => undefined);
       resetAll();
       setPartnerState(null);
       setProgress({});

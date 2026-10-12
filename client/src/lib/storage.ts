@@ -34,7 +34,25 @@ export function saveModuleProgress(moduleKey: string, result: ModuleProgress): P
   return progress;
 }
 
+const LABS_KEY = 'lbpr.labs';
+
+export function loadLabsLocal(): Record<string, number[]> {
+  try {
+    const raw = localStorage.getItem(LABS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, number[]>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveLabLocal(moduleKey: string, steps: number[]): void {
+  const all = loadLabsLocal();
+  all[moduleKey] = steps;
+  localStorage.setItem(LABS_KEY, JSON.stringify(all));
+}
+
 export function resetAll(): void {
+  localStorage.removeItem(LABS_KEY);
   localStorage.removeItem(PARTNER_KEY);
   localStorage.removeItem(PROGRESS_KEY);
 }

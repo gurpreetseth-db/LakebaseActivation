@@ -35,7 +35,7 @@ export function PlanPage() {
     setError('');
     try {
       const markdown = await generatePlan({
-        partner: { name: partner?.name ?? '', org: partner?.org ?? '' },
+        partner: { name: partner?.name ?? '', email: partner?.email ?? '', org: partner?.org ?? '' },
         overallScore: overall,
         overallLevel: level.label,
         modules: sortedModules(config).map((m) => {

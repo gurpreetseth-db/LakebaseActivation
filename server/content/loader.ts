@@ -44,7 +44,37 @@ const moduleMetaSchema = z.object({
 
 const questionTypeSchema = z.object({ label: z.string(), icon: z.string() });
 
+// The schema name is interpolated into DDL/DML (identifiers can't be bound as
+// parameters), so it is restricted to a safe Postgres identifier here.
+const lakebaseSchema = z.object({
+  enabled: z.boolean(),
+  project: z.string(),
+  branch: z.string(),
+  database: z.string(),
+  endpoint: z.string(),
+  schema: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/, 'must be a lowercase Postgres identifier'),
+});
+
 export const appConfigSchema = z.object({
+  lakebase: lakebaseSchema,
+  program: z.object({
+    adminEmails: z.array(z.string().email()),
+    leaderboard: z.object({ enabled: z.boolean(), topN: z.number().int().min(1).max(100) }),
+    certificate: z.object({
+      enabled: z.boolean(),
+      requireAllModules: z.boolean(),
+      title: z.string(),
+      issuer: z.string(),
+      signatory: z.string(),
+    }),
+    lakehouseSync: z.object({ catalog: z.string(), schema: z.string(), cdfConfigId: z.string() }),
+  }),
+  deployment: z.object({
+    appName: z.string().regex(/^[a-z][a-z0-9-]{1,29}$/),
+    description: z.string(),
+    space: z.string(),
+    sourcePath: z.string(),
+  }),
   branding: z.object({
     appName: z.string(),
     shortName: z.string(),
@@ -65,6 +95,9 @@ export const appConfigSchema = z.object({
   ai: z.object({
     enabled: z.boolean(),
     endpointName: z.string(),
+    embeddingEndpoint: z.string(),
+    embeddingDimensions: z.number().int().min(8).max(4096),
+    retrievalTopK: z.number().int().min(1).max(20),
     maxTokens: z.number(),
     temperature: z.number(),
     planHeading: z.string(),
@@ -105,7 +138,63 @@ const questionSchema = z.object({
 
 export const questionsSchema = z.object({ questions: z.array(questionSchema) });
 
+const demoSchema = z.object({
+  title: z.string(),
+  intro: z.string(),
+  disclaimer: z.string(),
+  links: z.array(z.object({ label: z.string(), url: z.string().url() })),
+  sections: z.array(
+    z.object({ key: z.string(), title: z.string(), body: z.array(z.string()), steps: z.array(z.string()) }),
+  ),
+});
+
+const knowledgeSchema = z.object({
+  entries: z.array(
+    z.object({
+      id: z.string(),
+      kind: z.enum(['fact', 'gotcha']),
+      module: z.string(),
+      title: z.string(),
+      content: z.string(),
+    }),
+  ),
+});
+
+const pricingSchema = z.object({
+  title: z.string(),
+  intro: z.string(),
+  pageUrl: z.string().url(),
+  regions: z.array(z.object({ cloud: z.string(), region: z.string(), code: z.string() })),
+  regionNote: z.string(),
+  meters: z.array(z.object({ name: z.string(), unit: z.string(), detail: z.string() })),
+  tips: z.array(z.string()),
+  usageQuery: z.object({ title: z.string(), note: z.string(), sql: z.string() }),
+});
+
+const flagSchema = z.enum(['green', 'yellow', 'red']);
+
+export const fitSchema = z.object({
+  title: z.string(),
+  intro: z.string(),
+  questions: z.array(
+    z.object({
+      id: z.string(),
+      prompt: z.string(),
+      options: z.array(z.object({ key: z.string(), label: z.string(), flag: flagSchema, note: z.string() })).min(2),
+    }),
+  ),
+  verdicts: z.object({
+    good: z.object({ label: z.string(), summary: z.string() }),
+    caution: z.object({ label: z.string(), summary: z.string(), yellowThreshold: z.number() }),
+    notYet: z.object({ label: z.string(), summary: z.string() }),
+  }),
+});
+
 export type AppConfig = z.infer<typeof appConfigSchema>;
+export type DemoContent = z.infer<typeof demoSchema>;
+export type FitContent = z.infer<typeof fitSchema>;
+export type KnowledgeContent = z.infer<typeof knowledgeSchema>;
+export type PricingContent = z.infer<typeof pricingSchema>;
 export type ModulesContent = z.infer<typeof modulesContentSchema>;
 export type Question = z.infer<typeof questionSchema>;
 
@@ -135,6 +224,31 @@ function readAndParse<T>(file: string, schema: z.ZodType<T>): T {
 let configCache: AppConfig | null = null;
 let modulesCache: ModulesContent | null = null;
 let questionsCache: Question[] | null = null;
+let demoCache: DemoContent | null = null;
+let fitCache: FitContent | null = null;
+
+let knowledgeCache: KnowledgeContent | null = null;
+let pricingCache: PricingContent | null = null;
+
+export function loadKnowledge(): KnowledgeContent {
+  if (!knowledgeCache) knowledgeCache = readAndParse('content/knowledge.json', knowledgeSchema);
+  return knowledgeCache;
+}
+
+export function loadPricing(): PricingContent {
+  if (!pricingCache) pricingCache = readAndParse('content/pricing.json', pricingSchema);
+  return pricingCache;
+}
+
+export function loadDemo(): DemoContent {
+  if (!demoCache) demoCache = readAndParse('content/demo.json', demoSchema);
+  return demoCache;
+}
+
+export function loadFit(): FitContent {
+  if (!fitCache) fitCache = readAndParse('content/fit.json', fitSchema);
+  return fitCache;
+}
 
 export function loadConfig(): AppConfig {
   if (!configCache) configCache = readAndParse('app.config.json', appConfigSchema);
