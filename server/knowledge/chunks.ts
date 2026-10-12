@@ -6,19 +6,32 @@
 import { createHash } from 'node:crypto';
 import type { AppConfig, DemoContent, FitContent, KnowledgeContent, ModulesContent, Question } from '../content/loader.js';
 
+export interface DocRef {
+  label: string;
+  url: string;
+}
+
 export interface Chunk {
   id: string;
   source: string;
   title: string;
   content: string;
   hash: string;
+  /** Documentation to show alongside answers that cite this passage (not embedded). */
+  docs: DocRef[];
+}
+
+/** Resolves a doc path against the docs base URL; absolute URLs pass through unchanged. */
+export function resolveDoc(base: string, path: string): string {
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${base.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
 const MAX_CHARS = 1200;
 
-function make(id: string, source: string, title: string, content: string): Chunk {
+function make(id: string, source: string, title: string, content: string, docs: DocRef[] = []): Chunk {
   const text = content.trim();
-  return { id, source, title, content: text, hash: createHash('sha256').update(`${title}\n${text}`).digest('hex') };
+  return { id, source, title, content: text, hash: createHash('sha256').update(`${title}\n${text}`).digest('hex'), docs };
 }
 
 /** Splits long text on paragraph boundaries so each chunk stays embedding-friendly. */
@@ -46,24 +59,30 @@ export function buildChunks(input: {
 }): Chunk[] {
   const { config, modules, questions, fit, demo, knowledge } = input;
   const chunks: Chunk[] = [];
+  const base = config.branding.docsBaseUrl;
+  const moduleDocs = (key: string): DocRef[] =>
+    (modules.modules[key]?.docLinks ?? []).map((d) => ({ label: d.label, url: resolveDoc(base, d.path) }));
 
   for (const k of knowledge.entries) {
-    chunks.push(make(`kb:${k.id}`, 'Lakebase reference', k.title, k.content));
+    const docs = k.docs.map((path) => ({ label: knowledge.docs[path] ?? path, url: resolveDoc(base, path) }));
+    chunks.push(make(`kb:${k.id}`, 'Lakebase reference', k.title, k.content, docs));
   }
 
   for (const meta of config.modules) {
     const m = modules.modules[meta.key];
     if (!m) continue;
     const body = [`Objectives:\n- ${m.objectives.join('\n- ')}`, ...m.overview].join('\n\n');
-    splitText(body).forEach((part, i) => chunks.push(make(`mod:${meta.key}:${i}`, `Module: ${meta.title}`, meta.title, part)));
+    splitText(body).forEach((part, i) =>
+      chunks.push(make(`mod:${meta.key}:${i}`, `Module: ${meta.title}`, meta.title, part, moduleDocs(meta.key))),
+    );
     chunks.push(
-      make(`lab:${meta.key}`, `Lab: ${meta.title}`, m.lab.title, `${m.lab.intro}\n${m.lab.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`),
+      make(`lab:${meta.key}`, `Lab: ${meta.title}`, m.lab.title, `${m.lab.intro}\n${m.lab.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`, moduleDocs(meta.key)),
     );
   }
 
   for (const q of questions) {
     const correct = q.choices.find((c) => c.key === q.correctAnswer)?.text ?? '';
-    chunks.push(make(`qa:${q.id}`, 'Knowledge check', q.prompt, `${q.prompt}\nAnswer: ${correct}\n${q.explanation}`));
+    chunks.push(make(`qa:${q.id}`, 'Knowledge check', q.prompt, `${q.prompt}\nAnswer: ${correct}\n${q.explanation}`, moduleDocs(q.moduleKey)));
   }
 
   for (const q of fit.questions) {

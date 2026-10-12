@@ -147,6 +147,8 @@ const demoSchema = z.object({
 });
 
 const knowledgeSchema = z.object({
+  /** doc path (relative to branding.docsBaseUrl) or absolute URL -> link label */
+  docs: z.record(z.string(), z.string()),
   entries: z.array(
     z.object({
       id: z.string(),
@@ -154,6 +156,7 @@ const knowledgeSchema = z.object({
       module: z.string(),
       title: z.string(),
       content: z.string(),
+      docs: z.array(z.string()).default([]),
     }),
   ),
 });

@@ -119,9 +119,15 @@ export interface Citation {
   source: string;
 }
 
+export interface DocLink {
+  label: string;
+  url: string;
+}
+
 export interface AskResponse {
   answer: string;
   citations: Citation[];
+  links: DocLink[];
   mode: 'vector' | 'keyword';
 }
 
@@ -138,6 +144,7 @@ export interface Pitfall {
   title: string;
   content: string;
   module: string;
+  docs: DocLink[];
 }
 
 export interface PricingContent {

@@ -303,6 +303,38 @@ describe('AI routes', () => {
     await t.close();
   });
 
+  test('answers include documentation links from the retrieved passages, or the docs home', async () => {
+    const hit = (docs: { label: string; url: string }[]) => ({ id: 'k', source: 'S', title: 'T', content: 'C', score: 1, docs });
+    const withDocs = await start({
+      knowledge: {
+        ready: () => true,
+        vector: () => true,
+        stats: () => Promise.resolve({ total: 1, embedded: 1 }),
+        retrieve: () =>
+          Promise.resolve({ mode: 'vector' as const, hits: [hit([{ label: 'Synced tables', url: 'https://docs.databricks.com/aws/en/oltp/projects/sync-tables/' }])] }),
+      },
+    });
+    const r = await withDocs.call('POST', '/api/ask', { question: 'How do synced tables work?' });
+    expect(r.json.links).toEqual([{ label: 'Synced tables', url: 'https://docs.databricks.com/aws/en/oltp/projects/sync-tables/' }]);
+    await withDocs.close();
+
+    const none = await start();
+    const f = await none.call('POST', '/api/ask', { question: 'Something with no linked docs' });
+    expect(f.json.links).toEqual([{ label: 'Lakebase documentation', url: `${config.branding.docsBaseUrl}/index/` }]);
+    await none.close();
+  });
+
+  test('pitfalls come with resolved documentation links', async () => {
+    const t = await start();
+    const r = await t.call('GET', '/api/content/pitfalls');
+    expect(r.json.pitfalls.length).toBeGreaterThan(0);
+    for (const p of r.json.pitfalls) {
+      expect(p.docs.length).toBeGreaterThan(0);
+      expect(p.docs[0].url).toMatch(/^https:\/\//);
+    }
+    await t.close();
+  });
+
   test('model failures surface as 502 instead of crashing', async () => {
     const t = await start({ invokeLlm: () => Promise.reject(new Error('endpoint down')) });
     const r = await t.call('POST', '/api/ask', { question: 'Anything about Lakebase' });

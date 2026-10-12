@@ -134,6 +134,12 @@ set `ai.embeddingDimensions` to match your model); and upserts them into `knowle
 (by content hash) are not re-embedded and removed passages are deleted. Search is cosine distance when embeddings
 exist, otherwise Postgres full-text. `GET /api/knowledge/status` and the Ask page badge show which is active.
 
+Every answer also returns **documentation links**. Each curated entry in `knowledge.json` lists doc paths (declared once in
+its `docs` catalog, relative to `branding.docsBaseUrl` or absolute); module, lab and quiz passages reuse the module's
+`docLinks`. Links come from the retrieved passages, best match first, de-duplicated and capped at five, with the docs home as
+a fallback. The model is told not to write URLs, so every link shown comes from this configuration. Tests check each entry
+has docs declared in the catalog; verify a new URL resolves before adding it.
+
 When changing the embedding model's dimensions, drop `knowledge_chunks` so it is recreated with the new vector size.
 
 ## Optional: Lakehouse Sync

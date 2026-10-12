@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { loadConfig, loadDemo, loadFit, loadKnowledge, loadModules, loadPricing, loadQuestions } from '../content/loader.js';
 import { buildChunks, splitText } from './chunks.js';
-import { buildAskPrompt, citationsFor } from './rag.js';
+import { buildAskPrompt, citationsFor, docLinksFor } from './rag.js';
 import { search, syncChunks, toVector } from './store.js';
 import type { Queryable } from '../db/schema.js';
 
@@ -57,6 +57,40 @@ describe('chunks', () => {
     expect(p.pageUrl).toMatch(/databricks\.com\/product\/pricing\/lakebase/);
     expect(JSON.stringify(p)).not.toMatch(/\$\s?\d/);
     expect(p.regions.length).toBeGreaterThan(0);
+  });
+});
+
+describe('documentation links', () => {
+  const fallback = { label: 'Docs home', url: 'https://docs.databricks.com/home' };
+
+  test('every curated entry links to documentation declared in the catalog', () => {
+    const k = loadKnowledge();
+    for (const e of k.entries) {
+      expect(e.docs.length, `${e.id} has no docs`).toBeGreaterThan(0);
+      for (const d of e.docs) expect(k.docs[d], `${e.id} -> ${d} missing from catalog`).toBeTruthy();
+    }
+  });
+
+  test('chunks carry absolute https links; modules and quiz passages reuse module docs', () => {
+    for (const c of chunks.filter((x) => x.id.startsWith('kb:') || x.id.startsWith('mod:') || x.id.startsWith('qa:'))) {
+      expect(c.docs.length, c.id).toBeGreaterThan(0);
+      for (const d of c.docs) expect(d.url, c.id).toMatch(/^https:\/\//);
+    }
+    const sync = chunks.find((c) => c.id === 'kb:synced-tables')!;
+    expect(sync.docs[0].url).toBe(`${loadConfig().branding.docsBaseUrl}/sync-tables/`);
+  });
+
+  test('links are de-duplicated, ordered by best match, capped, and always non-empty', () => {
+    const d = (n: number) => ({ label: `L${n}`, url: `https://x/${n}` });
+    const hit = (docs: ReturnType<typeof d>[]) => ({ id: 'a', source: 's', title: 't', content: 'c', score: 1, docs });
+    const links = docLinksFor([hit([d(1), d(2)]), hit([d(2), d(3), d(4)]), hit([d(5), d(6), d(7)])], fallback, 5);
+    expect(links.map((l) => l.url)).toEqual([1, 2, 3, 4, 5].map((n) => `https://x/${n}`));
+    expect(docLinksFor([], fallback)).toEqual([fallback]);
+    expect(docLinksFor([hit([])], fallback)).toEqual([fallback]);
+  });
+
+  test('the prompt forbids the model from inventing URLs', () => {
+    expect(buildAskPrompt('q', [])).toMatch(/Do not write URLs/);
   });
 });
 
