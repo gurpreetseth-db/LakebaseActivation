@@ -1,7 +1,27 @@
 // Shapes returned by the server content APIs. Kept in sync with the zod schemas
 // in server/content/loader.ts and the JSON files under config/.
 
+export interface LakebaseTarget {
+  enabled: boolean;
+  project: string;
+  branch: string;
+  database: string;
+  schema: string;
+}
+
+export interface LakebaseStatus extends LakebaseTarget {
+  connected: boolean;
+  latencyMs?: number;
+  error?: string;
+}
+
 export interface AppConfig {
+  lakebase: LakebaseTarget & { endpoint: string };
+  program: {
+    leaderboard: { enabled: boolean; topN: number };
+    certificate: { enabled: boolean; requireAllModules: boolean; title: string; issuer: string; signatory: string };
+    lakehouseSync: { catalog: string; schema: string; cdfConfigId: string };
+  };
   branding: { appName: string; shortName: string; tagline: string; org: string; docsBaseUrl: string };
   onboarding: {
     enabled: boolean;
@@ -18,8 +38,6 @@ export interface AppConfig {
     endpointName: string;
     maxTokens: number;
     temperature: number;
-    planHeading: string;
-    planDescription: string;
   };
   modules: ModuleMeta[];
   questionTypes: Record<string, { label: string; icon: string }>;
@@ -67,6 +85,105 @@ export interface GradeResponse {
   correct: number;
   score: number;
   results: GradeResultItem[];
+}
+
+export interface DemoContent {
+  title: string;
+  intro: string;
+  disclaimer: string;
+  links: { label: string; url: string }[];
+  sections: { key: string; title: string; body: string[]; steps: string[] }[];
+}
+
+export type Flag = 'green' | 'yellow' | 'red';
+
+export interface FitContent {
+  title: string;
+  intro: string;
+  questions: { id: string; prompt: string; options: { key: string; label: string; flag: Flag; note: string }[] }[];
+}
+
+export interface FitResult {
+  verdict: 'good' | 'caution' | 'notYet';
+  label: string;
+  summary: string;
+  counts: Record<Flag, number>;
+  findings: { questionId: string; prompt: string; answer: string; flag: Flag; note: string }[];
+}
+
+export type LabProgress = Record<string, { status: string; steps: number[] }>;
+
+export interface Citation {
+  n: number;
+  title: string;
+  source: string;
+}
+
+export interface AskResponse {
+  answer: string;
+  citations: Citation[];
+  mode: 'vector' | 'keyword';
+}
+
+export interface KnowledgeStatus {
+  ready: boolean;
+  vector: boolean;
+  chunks?: number;
+  total?: number;
+  embedded: number;
+}
+
+export interface Pitfall {
+  id: string;
+  title: string;
+  content: string;
+  module: string;
+}
+
+export interface PricingContent {
+  title: string;
+  intro: string;
+  pageUrl: string;
+  regions: { cloud: string; region: string; code: string }[];
+  regionNote: string;
+  meters: { name: string; unit: string; detail: string }[];
+  tips: string[];
+  usageQuery: { title: string; note: string; sql: string };
+}
+
+export interface AdminSummary {
+  totals: { partners: number; organizations: number; active: number; avgOverall: number; certified: number };
+  modules: { key: string; title: string; learners: number; avgScore: number | null; passRate: number | null; retakes: number }[];
+  hardestQuestions: { id: string; moduleKey: string; prompt: string; asked: number; accuracy: number | null }[];
+  partners: {
+    name: string;
+    email: string;
+    org: string;
+    modulesDone: number;
+    overall: number;
+    level: string;
+    certified: boolean;
+    lastSeenAt: string;
+  }[];
+  recentQuestions: { question: string; mode: string; createdAt: string }[];
+}
+
+export interface LeaderboardResponse {
+  entries: { rank: number; name: string; org: string; overall: number; isMe: boolean }[];
+  optedIn: boolean;
+  total: number;
+}
+
+export interface CertificateData {
+  id: string;
+  name: string;
+  org: string;
+  overall: number;
+  level: string;
+  issuedAt: string;
+  title: string;
+  issuer: string;
+  signatory?: string;
 }
 
 export interface Partner {

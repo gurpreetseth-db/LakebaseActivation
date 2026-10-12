@@ -50,4 +50,12 @@ describe('content files', () => {
       expect(count, `module ${meta.key} has no questions`).toBeGreaterThan(0);
     }
   });
+
+  test('lakebase target is fully configured (no hardcoded values in code)', () => {
+    const { lakebase } = loadConfig();
+    expect(lakebase.schema).toMatch(/^[a-z_][a-z0-9_]*$/);
+    expect(lakebase.branch.startsWith(lakebase.project)).toBe(true);
+    expect(lakebase.database.startsWith(lakebase.branch)).toBe(true);
+    expect(lakebase.endpoint.startsWith(lakebase.branch)).toBe(true);
+  });
 });

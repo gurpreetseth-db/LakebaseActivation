@@ -1,1 +1,6 @@
 command: ['npm', 'run', 'start']
+env:
+  # Injected by the platform from the `postgres` app resource. The target
+  # project/branch/database/schema live in config/app.config.json (lakebase).
+  - name: LAKEBASE_ENDPOINT
+    valueFrom: postgres

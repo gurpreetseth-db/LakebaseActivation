@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from 'react';
 
 // Minimal, safe Markdown renderer (no raw HTML). Supports headings (#, ##, ###),
 // bullet and numbered lists, paragraphs, and inline **bold** / `code`.
-// Used for module overview paragraphs and the AI-generated adoption plan.
+// Used for module overview paragraphs and AI answers.
 
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];

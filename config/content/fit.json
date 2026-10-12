@@ -1,0 +1,83 @@
+{
+  "$comment": "Lakebase fit-checker. Each option carries a flag (green/yellow/red). Verdict rules live in 'verdicts'. Edit freely; validated at startup.",
+  "title": "Is Lakebase a good fit?",
+  "intro": "Answer a few questions about the workload you are considering. The checker flags blockers and risks early, so you qualify opportunities honestly.",
+  "questions": [
+    {
+      "id": "workload",
+      "prompt": "What is the primary workload?",
+      "options": [
+        { "key": "oltp", "label": "Transactional app, agent state, or low-latency feature/data serving", "flag": "green", "note": "" },
+        { "key": "mixed", "label": "Transactional plus a meaningful amount of analytical querying on the same database", "flag": "yellow", "note": "Keep heavy analytics in the lakehouse; use synced tables or Lakehouse Sync instead of scanning the operational database." },
+        { "key": "olap", "label": "Large-scale reporting or OLAP directly on the operational database", "flag": "red", "note": "Lakebase is an OLTP database. Run analytical workloads on the lakehouse instead of splitting data across branches or projects to work around limits." }
+      ]
+    },
+    {
+      "id": "source",
+      "prompt": "Where does the data live today?",
+      "options": [
+        { "key": "postgres", "label": "Already on PostgreSQL (or new, nothing to migrate)", "flag": "green", "note": "" },
+        { "key": "relational", "label": "Another relational database that must be migrated", "flag": "yellow", "note": "Assess migration readiness first and plan a phased migration; expect schema and SQL dialect work." },
+        { "key": "nosql", "label": "A NoSQL or GraphQL-centric system", "flag": "red", "note": "Moving from non-Postgres, non-relational models is a re-architecture, not a lift-and-shift." }
+      ]
+    },
+    {
+      "id": "connections",
+      "prompt": "How many concurrent connections at peak?",
+      "options": [
+        { "key": "low", "label": "Fewer than about 1,000", "flag": "green", "note": "" },
+        { "key": "mid", "label": "Roughly 1,000 to 4,000", "flag": "yellow", "note": "Use application-side pooling and size the compute to the connection budget for your maximum CU." },
+        { "key": "high", "label": "More than 4,000", "flag": "red", "note": "Connections are capped at 4,000 per endpoint; redesign with pooling or fewer clients." }
+      ]
+    },
+    {
+      "id": "size",
+      "prompt": "How large is the database?",
+      "options": [
+        { "key": "small", "label": "Under about 2 TB", "flag": "green", "note": "" },
+        { "key": "medium", "label": "2 TB to 8 TB", "flag": "yellow", "note": "Within limits, but plan capacity, backups and restore windows carefully." },
+        { "key": "large", "label": "More than 8 TB", "flag": "red", "note": "Exceeds the per-branch logical data limit; consider archiving cold data or partitioning by workload." }
+      ]
+    },
+    {
+      "id": "tuning",
+      "prompt": "How much low-level Postgres tuning does the workload need?",
+      "options": [
+        { "key": "none", "label": "Defaults are fine", "flag": "green", "note": "" },
+        { "key": "some", "label": "Some tuning of queries and indexes (application level)", "flag": "green", "note": "" },
+        { "key": "deep", "label": "Depends on tuning server parameters such as autovacuum, work_mem or shared_buffers", "flag": "red", "note": "Those server parameters are not configurable on Lakebase; validate with a proof of concept before committing." }
+      ]
+    },
+    {
+      "id": "extensions",
+      "prompt": "Which Postgres extensions are required?",
+      "options": [
+        { "key": "supported", "label": "Only common supported ones (for example pgvector, pg_stat_statements, pgcrypto, PostGIS)", "flag": "green", "note": "" },
+        { "key": "unsure", "label": "Not sure yet", "flag": "yellow", "note": "List what the app uses and compare it with SELECT * FROM pg_available_extensions." },
+        { "key": "storage", "label": "Extensions that manipulate Postgres storage directly", "flag": "red", "note": "Extensions that change the storage layer are not supported." }
+      ]
+    },
+    {
+      "id": "lakehouse",
+      "prompt": "How does the data relate to the lakehouse?",
+      "options": [
+        { "key": "integrated", "label": "Serve lakehouse data to an app, or analyse operational data in the lakehouse", "flag": "green", "note": "" },
+        { "key": "standalone", "label": "No lakehouse interaction planned", "flag": "yellow", "note": "Lakebase still works as managed Postgres, but the integration advantage is smaller; confirm the value case." }
+      ]
+    },
+    {
+      "id": "region",
+      "prompt": "Is Lakebase available in the required cloud region?",
+      "options": [
+        { "key": "yes", "label": "Yes, confirmed", "flag": "green", "note": "" },
+        { "key": "unknown", "label": "Not checked yet", "flag": "yellow", "note": "Check the current regional availability list before positioning a date." },
+        { "key": "no", "label": "No", "flag": "red", "note": "Data residency may rule it out until the region is supported." }
+      ]
+    }
+  ],
+  "verdicts": {
+    "good": { "label": "Good fit", "summary": "No blockers found. Proceed to a proof of concept and confirm the details below." },
+    "caution": { "label": "Proceed with care", "summary": "No hard blockers, but several risks need answers before you commit.", "yellowThreshold": 3 },
+    "notYet": { "label": "Not a fit today", "summary": "At least one blocker makes Lakebase a poor match as described. Resolve or redesign before proceeding." }
+  }
+}

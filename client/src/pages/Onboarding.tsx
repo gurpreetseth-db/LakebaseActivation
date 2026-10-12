@@ -9,6 +9,7 @@ import {
   Input,
   Label,
 } from '@databricks/appkit-ui/react';
+import { GraduationCap } from 'lucide-react';
 import { useAppData } from '@/lib/AppData';
 import type { Partner } from '@/lib/types';
 
@@ -32,13 +33,16 @@ export function Onboarding() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+    <div className="app-bg flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">{branding.appName}</h1>
+          <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg">
+            <GraduationCap className="h-7 w-7 text-primary-foreground" />
+          </span>
+          <h1 className="text-3xl font-bold text-foreground">{branding.appName}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{branding.tagline}</p>
         </div>
-        <Card className="shadow-lg">
+        <Card className="border-t-4 border-t-primary shadow-xl">
           <CardHeader>
             <CardTitle>{onboarding.heading}</CardTitle>
             <CardDescription>{onboarding.subheading}</CardDescription>
@@ -68,7 +72,7 @@ export function Onboarding() {
               Start learning
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Your details stay in this browser and personalize your adoption plan.
+              Your email links your progress across devices.
             </p>
           </CardContent>
         </Card>
