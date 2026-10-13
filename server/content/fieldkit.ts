@@ -44,10 +44,12 @@ export interface PublicSection {
 export interface PublicFieldkit {
   deckTitle: string;
   edition: string;
+  /** PDF containing only the cleared slides. */
+  pdf: string;
   sections: PublicSection[];
 }
 
-/** The partner-safe view: allowed slides only, no deck id, held reasons or expected titles. */
+/** The partner-safe view: allowed slides only, no held reasons or expected titles. */
 export function loadPublicFieldkit(config: AppConfig = loadConfig()): PublicFieldkit {
   const allowed = allowedSlides(config);
   const sections = loadFieldkitRaw()
@@ -68,5 +70,10 @@ export function loadPublicFieldkit(config: AppConfig = loadConfig()): PublicFiel
         })),
     }))
     .filter((s) => s.slides.length > 0);
-  return { deckTitle: config.fieldkit.deckTitle, edition: config.fieldkit.edition, sections };
+  return {
+    deckTitle: config.fieldkit.deckTitle,
+    edition: config.fieldkit.edition,
+    pdf: `/${config.fieldkit.imageDir}/${config.fieldkit.pdfFile}`,
+    sections,
+  };
 }

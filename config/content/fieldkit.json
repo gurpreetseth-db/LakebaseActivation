@@ -1,276 +1,292 @@
 {
-  "$comment": "Partner-facing Field Kit content. ONLY slides listed in app.config.json fieldkit.approvedSlides (minus heldSlides) are ever served or indexed. Titles and summaries are written for this app; 'text' is the slide's own text (speaker notes are never included). expectTitle lets scripts/sync-fieldkit.mjs detect a reordered deck.",
+  "$comment": "Partner-facing Field Kit content. Slide numbers are PAGE NUMBERS of the curated deck PDF (fieldkit-source/deck.pdf). ONLY pages listed in app.config.json fieldkit.approvedSlides (minus heldSlides) are ever served or indexed. Titles and summaries are written for this app; 'text' is the slide's own text (speaker notes are never included). expectTitle lets scripts/build-fieldkit.mjs detect a changed or reordered PDF.",
   "sections": [
     {
       "key": "why",
       "title": "Why Lakebase",
-      "modules": [
-        "fundamentals"
-      ],
       "summary": "Application teams struggle to choose, provision, scale and govern operational databases, especially across dev, test and production. Lakebase answers with serverless Postgres that separates compute from storage and lives inside the Data Intelligence Platform.",
       "takeaways": [
         "Apps have become stateless, serverless and intelligent; databases have not kept pace",
         "Separating compute from storage is what enables branching, scale to zero and fast recovery",
         "Lower total cost comes from one governed platform, elastic compute and a better developer workflow"
       ],
+      "modules": [
+        "fundamentals"
+      ],
       "slides": [
         {
-          "n": 5,
+          "n": 2,
           "title": "Customer challenges",
-          "expectTitle": "How to scale and troubleshoot custom dep",
-          "text": "How to choose, setup and integrate an operational database, including data synchronization?\nHow to make it easy for application teams to use?\nScaling\nDifficult \nto manage\nHow to scale and deploy quickly? How to minimize risk of having multiple databases across dev, test, staging, prod environments?\nProvisioning\nComplex\nto integrate\nAutomation\nOutdated developer\nexperience\nCustomer Challenges"
+          "expectTitle": "Customer Challenges",
+          "text": "Customer Challenges\nProvisioning\nComplex\nto integrate\nHow to choose, setup and\nintegrate an operational\ndatabase, including data\nsynchronization?\nHow to make it easy for\napplication teams to use?\nScaling\nDifficult\nto manage\nHow to scale and\ntroubleshoot custom\ndeployments and data\nsynchronization?\nAutomation\nOutdated developer\nexperience\nHow to scale and deploy\nquickly? How to minimize\nrisk of having multiple\ndatabases across dev, test,\nstaging, prod\nenvironments?"
         },
         {
-          "n": 6,
+          "n": 3,
           "title": "Applications have evolved",
           "expectTitle": "Applications have evolved",
-          "text": "Applications have become stateless, serverless, and intelligent\nDatabases remain monolithic and impossible to move\nDatabases haven’t"
+          "text": "Applications\nhave evolved\nApplications have become\nstateless, serverless, and\nintelligent\nDatabases\nhaven’t\nDatabases remain monolithic\nand impossible to move"
         },
         {
-          "n": 7,
+          "n": 4,
           "title": "Compute and storage are separated",
-          "expectTitle": "COMPUTE",
-          "text": "STORAGE\nSeparates compute and storage\nFully-managed, serverless Postgres"
+          "expectTitle": "Fully-managed, serverless Postgres",
+          "text": "COMPUTE\nLakebase\nFully-managed, serverless\nPostgres\nSeparates compute\nand storage\nSTORAGE"
         },
         {
-          "n": 8,
+          "n": 5,
           "title": "Lower total cost of ownership",
           "expectTitle": "Lower TCO",
-          "text": "Integrated\nPlatform\nSimplify your stack, with centralized governance and no ETL\nAutoscaling, elasticity, serverless\nGreat Developer Experience\nBranching & snapshots"
+          "text": "Lakebase\nGreat Developer\nExperience\nLower\nTCO\nIntegrated\nPlatform\nBranching\n& snapshots\nAutoscaling, elasticity,\nserverless\nSimplify your stack, with\ncentralized governance\nand no ETL"
         }
       ]
     },
     {
       "key": "capabilities",
       "title": "Core capabilities",
-      "modules": [
-        "operations",
-        "performance"
-      ],
       "summary": "Five capabilities change how teams build on Postgres: instant zero-copy branches, point-in-time recovery, autoscaling, scale to zero, and read capacity that scales independently of writes.",
       "takeaways": [
         "Branches give every developer or CI run an isolated copy without duplicating storage",
         "Restore to an exact moment, and validate on a branch before touching production",
         "Compute follows demand and suspends when idle, so you pay for active use"
       ],
+      "modules": [
+        "operations",
+        "performance"
+      ],
       "slides": [
         {
-          "n": 9,
+          "n": 6,
           "title": "Branching and development",
           "expectTitle": "Branching and development",
-          "text": "Lakebase Branching\nInstant, zero-copy isolation lets teams safely build and test without touching production and live workloads.\nGit-style workflow for data\nBring CI/CD to your database for feature branches and rapid experimentation.\nEphemeral environments\nCreate and decommission dev/test branches quickly with no storage duplication.\nTreat your database like code"
+          "text": "Branching and development\nTreat your database like code\nLakebase Branching\nInstant, zero-copy isolation lets teams\nsafely build and test without touching\nproduction and live workloads.\nMain\ndataset\nGit-style workflow for data\nBring CI/CD to your database for feature\nbranches and rapid experimentation.\nEphemeral environments\nCreate and decommission dev/test\nbranches quickly with no storage\nduplication.\nProductio\nn\nSchema\nmigrations"
+        },
+        {
+          "n": 7,
+          "title": "Recovery and backups",
+          "expectTitle": "Recovery and backups",
+          "text": "Recovery and backups\nPrecise restoration, at scale\nScheduled snapshots\nCreate instant database backups on a\nschedule.\nCOMPUT\nE\nRapid, precise recovery\nRestore to an exact moment within a\nmanaged window (up to 35 days) for\nquick incident recovery.\nSafe validation\nUse an isolated, zero-copy branch before\napplying changes to reduce the risk of\nbad restores to production.\nSTORAGE"
+        },
+        {
+          "n": 8,
+          "title": "Autoscaling",
+          "expectTitle": "Dynamic compute sizing",
+          "text": "Autoscaling\nFast performance and smart savings, with no manual tuning\nDynamic compute sizing\nCompute automatically scales based on\nworkload demand, for high performance\neven during spikes.\nConfigurable\nDefine minimum and maximum compute\nsize to keep costs under control.\nNo downtime\nScaling operations do not interrupt\noperations."
+        },
+        {
+          "n": 9,
+          "title": "Fast startup and scale to zero",
+          "expectTitle": "Fast startup and scale to zero",
+          "text": "Fast startup and scale to zero\nReady when you need it, without paying for idle capacity\nOnly pay for active use\nPay only when your database is active. Idle\ninstances drop to zero to keep costs low.\nAutomatic scale to zero\nUnused databases automatically suspend\nafter a configurable idle period with no\nmanual intervention.\nInstant readiness\nSub-second start times mean responsive\napps and fast setup for dev/testing."
         },
         {
           "n": 10,
-          "title": "Recovery and backups",
-          "expectTitle": "Recovery and backups",
-          "text": "Scheduled snapshots\nCreate instant database backups on a schedule.\nRapid, precise recovery\nRestore to an exact moment within a managed window (up to 35 days) for quick incident recovery.\nSafe validation\nUse an isolated, zero-copy branch before applying changes to reduce the risk of bad restores to production.\nPrecise restoration, at scale"
-        },
-        {
-          "n": 11,
-          "title": "Autoscaling",
-          "expectTitle": "Autoscaling",
-          "text": "Dynamic compute sizing\nCompute automatically scales based on workload demand, for high performance even during spikes.\nConfigurable\nDefine minimum and maximum compute size to keep costs under control.\nNo downtime\nScaling operations do not interrupt operations.\nFast performance and smart savings, with no manual tuning"
-        },
-        {
-          "n": 12,
-          "title": "Fast startup and scale to zero",
-          "expectTitle": "Fast startup and scale to zero",
-          "text": "Only pay for active use\nPay only when your database is active. Idle instances drop to zero to keep costs low.\nAutomatic scale to zero\nUnused databases automatically suspend after a configurable idle period with no manual intervention.\nInstant readiness\nSub-second start times mean responsive apps and fast setup for dev/testing.\nReady when you need it, without paying for idle capacity"
-        },
-        {
-          "n": 13,
           "title": "Horizontal read scalability",
           "expectTitle": "Horizontal read scalability",
-          "text": "Read isolation\nDedicated read-only compute serves queries without impacting write workloads.\nIndependent scaling\nAdd or remove read query capacity without changing write compute.\nShared data layer\nAll compute accesses a single underlying data set, with no data duplication.\nHigh concurrency without operational complexity\nR/W\nR/O\nR/O\nR/O\nR/W"
+          "text": "Horizontal read scalability\nHigh concurrency without operational complexity\nRead isolation\nDedicated read-only compute serves\nqueries without impacting write workloads.\nIndependent scaling\nAdd or remove read query capacity\nwithout changing write compute.\nShared data layer\nAll compute accesses a single underlying\ndata set, with no data duplication.\nCOMPUTE\nR/W\nSTORAGE\nR/O\nR/O"
         }
       ]
     },
     {
       "key": "platform",
-      "title": "Platform and use cases",
+      "title": "Platform, use cases and fit",
+      "summary": "Operational data sits next to analytics and AI under one governance model. These slides show what teams build on it, where Lakebase is not the right tool, and a green/yellow/red checklist for qualifying a workload.",
+      "takeaways": [
+        "Transactional apps, agent state, recommendations and feature serving are core use cases",
+        "Operational data is available to analytics and AI without copying or ETL",
+        "It is an OLTP database: large-scale OLAP and non-Postgres migrations are poor fits",
+        "Use the fit checklist early, and try the Fit-checker in this app for a quick verdict"
+      ],
       "modules": [
         "fundamentals",
         "ai-ml"
       ],
-      "summary": "Operational data sits next to analytics and AI under one governance model. These slides show what teams build on it and where Lakebase is not the right tool.",
-      "takeaways": [
-        "Transactional apps, agent state, recommendations and feature serving are core use cases",
-        "Operational data is available to analytics and AI without copying or ETL",
-        "It is an OLTP database: large-scale OLAP and non-Postgres migrations are poor fits"
-      ],
       "slides": [
         {
-          "n": 14,
+          "n": 11,
           "title": "Built into the Data Intelligence Platform",
-          "expectTitle": "Built into the Data Intelligence Platfor",
-          "text": "First-class platform compute\nExecute operational workloads on the same platform as analytics and AI.\nShare a common data foundation\nOperational data is immediately available without copying or ETL pipelines.\nBuilt-in governance and security\nApply consistent access control, auditing, and policies across all data.\nAvoid separate stacks and proprietary governance models"
+          "expectTitle": "Built into the Data Intelligence Platform",
+          "text": "Built into the Data Intelligence Platform\nAvoid separate stacks and proprietary governance models\nFirst-class platform compute\nExecute operational workloads on the same\nplatform as analytics and AI.\nShare a common data foundation\nOperational data is immediately available\nwithout copying or ETL pipelines.\nBuilt-in governance and security\nApply consistent access control, auditing, and\npolicies across all data.\nCOMPUTE\nLakehouse\nSTORAGE"
+        },
+        {
+          "n": 12,
+          "title": "One platform for data and AI",
+          "expectTitle": "Unified governance for data and AI",
+          "text": "Data Intelligence Platform\nAI/BI\nApps\nAgentic business intelligence\nLakeflow\nIngest, ETL, streaming\nSecure data & AI apps\nDBSQL\nLakebase\nData warehousing\nServerless Postgres\nAgent Bricks\nAgentic AI & Machine Learning\nUnified governance for data and AI\nAll data under your control"
+        },
+        {
+          "n": 13,
+          "title": "What you can do with Lakebase",
+          "expectTitle": "What can you do with Lakebase",
+          "text": "What can you do with Lakebase?\nServe low latency,\nhigh concurrency\nBuild AI and\ntraditional apps\nAnalyze data in\nthe lakehouse\nApp\nLakehouse\nLakebase\nPersonalized\nrecommendations\nCustomer\nsegmentation\nFeature store\nLakebase\nOrder processing\nInteractive workflow\nsign-off\nState for an agent\nLakehouse\nLakebase\nOrder history\n(analytics)\nChatbot history\n(training data)"
+        },
+        {
+          "n": 14,
+          "title": "What Lakebase is not for",
+          "expectTitle": "What should you NOT do",
+          "text": "What should you NOT do with Lakebase?\n●\n●\n●\n●\n●\nLarge scale migrations. For customers considering PostgreSQL migration → use Lakegate\nto assess readiness before committing (16 automated checks, readiness score, phased\nmigration playbook)\nMigration from non-postgres databases (Especially true for GraphQL and NoSQL DBs!)\nRun workloads which require more than:\n○ 4000 concurrent connections\n○ 16TB of Storage\nRun OLAP workloads in an OLTP database, expecting improved performances (it won’t)\nSplitting a large dataset into multiple branches or projects to workaround those\nrestrictions is strongly discouraged",
+          "note": "The current Autoscaling limit is 8 TB of logical data per branch, which differs from the 16TB shown on this slide. Confirm the current limit in the Lakebase documentation."
         },
         {
           "n": 15,
-          "title": "One platform for data and AI",
-          "expectTitle": "Data Intelligence Platform",
-          "text": "All data under your control\nUnified governance for data and AI"
-        },
-        {
-          "n": 16,
-          "title": "What you can do with Lakebase",
-          "expectTitle": "What can you do with Lakebase?",
-          "text": "Order history (analytics)\n\nChatbot history (training data)\nAnalyze data in the lakehouse\nBuild AI and traditional apps\nApp\nOrder processing\n\nInteractive workflow sign-off\n\nState for an agent\nPersonalized recommendations\n\nCustomer segmentation\n\nFeature store\nServe low latency, high concurrency\nLakebase\nLakebase\nLakebase"
-        },
-        {
-          "n": 17,
-          "title": "What Lakebase is not for",
-          "expectTitle": "What should you NOT do with Lakebase?",
-          "text": "Large scale migrations. For customers considering PostgreSQL migration → use Lakegate to assess readiness before committing (16 automated checks, readiness score, phased migration playbook)\nMigration from non-postgres databases (Especially true for GraphQL and NoSQL DBs!)\nRun workloads which require more than:\n4000 concurrent connections (1000 for Lakebase provisioned)\n16TB of Storage\nRun OLAP workloads in an OLTP database, expecting improved performances (it won’t)\nSplitting a large dataset into multiple branches or projects to workaround those restrictions is strongly discouraged",
-          "note": "The 1,000-connection figure for Lakebase Provisioned no longer applies: Provisioned has been retired and migrated to Autoscaling, where the limit is 4,000 concurrent connections."
+          "title": "Is Lakebase a good fit?",
+          "expectTitle": "Is Lakebase good fit",
+          "text": "Qualification: Is Lakebase good fit?\nUse this to quickly validate fit for Lakebase\nWorkload\nType\n✅ Green Flags\n(Strong Fit)\n⚠ Yellow Flags\n(Proceed with Caution)\n🛑 Red Flags\n(Walk Away)\nNew Apps & Portals: Internal tools, customer-facing apps,\nor operational dashboards .\nPostgres Migrations: Moving from\nRDS/Aurora is okay if they need\nautoscaling/branching, you should win\nyour first proof-point before going after a\nmigration\nLarge-Scale Migrations: Migrating\nmassive legacy Oracle/SQL Server\nestates .\nSize > 16TB: Dataset exceeds the 8TB limit\nfor Autoscaling, understand their current\ndesign as well as our storage increase\ntimelines..\nHigh-Write NoSQL: Extremely\nhigh-throughput write workloads\nbetter suited for\nDynamoDB/Cassandra.\nStrict Silos: App teams with zero interest\nin the Data Platform/Lakehouse\necosystem.\nSpecialized Tech: Requirement for\nproprietary technology that doesn’t\nintegrate with Lakebase (qualify\ntheir ecosystem early)\nAI Agent State: Storage for chatbot session history\n(long/short-term memory) .\nReverse ETL: Need to serve curated Lakehouse data (Gold\ntables) to apps without complex pipelines.\nData &\nScale\nTeam &\nOps\nVariable Traffic: \"Spiky\" workloads or dev/test\nenvironments that sit idle (perfect for Scale-to-Zero) .\nStandard OLTP: Needs <10ms latency for point lookups.\nFast Cycles: Teams demanding rapid CI/CD, ephemeral\nenvironments, or feature branching .\nData + App Convergence: Data teams owning the \"last\nmile\" of serving.\nHeavy Analytics (OLAP): Running\nwarehouse-style reporting directly\non the transactional DB (use DBSQL\ninstead).",
+          "note": "The current Autoscaling limit is 8 TB of logical data per branch. Confirm the current limit in the Lakebase documentation before qualifying a workload."
         }
       ]
     },
     {
       "key": "engine",
       "title": "Postgres, integration and extensions",
-      "modules": [
-        "data-integration",
-        "ai-ml"
-      ],
       "summary": "Lakebase is real Postgres with its ecosystem, run as a fully managed service with managed synchronisation to and from the lakehouse.",
       "takeaways": [
         "Standard Postgres means existing tools, drivers and skills carry over",
         "Managed sync, the online feature store and Unity Catalog integration connect it to the lakehouse",
         "Install supported extensions with CREATE EXTENSION"
       ],
+      "modules": [
+        "data-integration",
+        "ai-ml"
+      ],
       "slides": [
         {
-          "n": 19,
+          "n": 16,
           "title": "A Postgres engine with a rich ecosystem",
           "expectTitle": "Postgres database engine",
-          "text": "Postgres Engine\nRich ecosystem\nFastest growing database engine of last decade"
+          "text": "Postgres database engine\nFastest growing database engine of last decade\nPostgres Engine\nHigh perf: <10ms latency, >10ks QPS\n✓\nFull Postgres SQL engine: transactions\n(ACID), indexes, views, pk/fk\nenforcement, joins, CTEs, triggers,\nstored procedures\n✓\nMySQL\nMS SQL Server\nRich ecosystem\nRedis\nExtensions: incl: PostGIS, pgvector\n✓\nDrivers: Java, Python, etc\n✓\nTools: pgAdmin, DBeaver, PSQL\n✓\nOracle"
         },
         {
-          "n": 20,
+          "n": 17,
           "title": "Separation of storage and compute",
           "expectTitle": "Separation of storage and compute",
-          "text": "Decoupled compute and storage\nHigh-availability and recovery\nSecure\nManagement / observability\nFully managed, easy to use, and enterprise ready"
+          "text": "Separation of storage and compute\nFully managed, easy to use, and enterprise ready\nDecoupled compute and storage\nSecure\nIndependent compute/storage scaling\n✓\nDatabricks Identity & OAuth\n✓\nPause/resume compute\n✓\nPrivateLink / IP ACLs\n✓\nDatabricks Serverless Infra: hardened\ncompute & encrypted storage\n✓\nTransport Layer Security (TLS)\nencryption\n✓\nHigh-availability and recovery\nManagement / observability\nMulti High Availability Zone Failover\n✓\nBuilt in monitoring\n✓\nReadable Secondaries\n✓\nDatabricks Apps resource\n✓\nPoint-in-Time Recovery up to 35 days\npowered by copy-on-write clone\n✓\nTerraform; DAB; Billing Tags\n✓"
         },
         {
-          "n": 21,
+          "n": 18,
           "title": "Integrated with the lakehouse",
           "expectTitle": "Integrated with Lakehouse",
-          "text": "Fully-Managed Data Synchronization\nAI Platform: Online Feature Store\nIntegrated with Unity Catalog\nQuery Editor and Schema Browser\nEasy to use"
+          "text": "Integrated with Lakehouse\nEasy to use\nFully-Managed Data Synchronization\nIntegrated with Unity Catalog\nSync from Lakehouse table - Postgres\n✓\nRegister Postgres database as Catalog\n✓\nSync from Postgres - Lakehouse table\n✓\nGoverned by UC\n✓\nSnapshot, Triggered, Continuous\n✓\nLakehouse Federation\n✓\nMultiple table syncs in a pipeline\n✓\nAI Platform: Online Feature Store\nQuery Editor and Schema Browser\nHigh performance feature lookup\n✓\nNative Postgres query editor\n✓\nFeature store for real-time serving,\nwith offline training data in Lakehouse\n✓\nBrowse Postgres schema\n✓"
         },
         {
-          "n": 22,
+          "n": 19,
           "title": "Postgres extensions",
           "expectTitle": "Postgres Extensions",
-          "text": "We support an ever growing list of extensions, which are documented on our website\nThe list of available extensions can also be retrieved from Postgres directly using SELECT * FROM pg_available_extensions ORDER BY name;\nInstalling an extension is as easy as CREATE EXTENSION <extension_name>;\nAmongst the popular extensions: pg_stat_statements (query metrics), pgcrypto, pg_prewarm (cache prewarming), neon, postgis (geospatial), pg_graphql (GraphQL support), pg_vector \nOBS: We cannot support extensions that directly manipulate Postgres storage as this would be incompatible with our storage infrastructure",
+          "text": "Postgres Extensions\n● We support an ever growing list of extensions, which are documented on our\nwebsite\n● The list of available extensions can also be retrieved from Postgres directly\nusing SELECT * FROM pg_available_extensions ORDER BY name;\n● Installing an extension is as easy as CREATE EXTENSION <extension_name>;\n● Amongst the popular extensions: pg_stat_statements (query metrics),\npgcrypto, pg_prewarm (cache prewarming), neon, postgis (geospatial),\npg_graphql (GraphQL support), pg_vector\nOBS: We cannot support extensions that directly manipulate Postgres storage as this\nwould be incompatible with our storage infrastructure",
           "note": "The supported extension list grows over time. Run SELECT * FROM pg_available_extensions for the current list."
         }
       ]
     },
     {
       "key": "operate",
-      "title": "Monitoring and cost visibility",
-      "modules": [
-        "operations"
-      ],
-      "summary": "Usage lands in billing system tables, access is auditable, and the project metrics tab plus standard Postgres tools cover health monitoring.",
+      "title": "Pricing, billing and monitoring",
+      "summary": "Two meters drive cost, usage lands in billing system tables, access is auditable, and the project metrics tab plus standard Postgres tools cover health monitoring.",
       "takeaways": [
+        "Compute is billed per second while active and storage monthly; idle databases cost no compute",
         "Billing and audit data is queryable in system tables",
         "Built-in dashboards show CPU, memory, connections, throughput and cache hit rates"
       ],
+      "modules": [
+        "operations"
+      ],
       "slides": [
         {
-          "n": 29,
+          "n": 20,
+          "title": "Pricing",
+          "expectTitle": "Two Simple Meters",
+          "text": "Pricing\nLearn more\n→\npublic pricing page\nStop paying for idle time: True serverless pricing that scales to zero.\n1. The Model: Two Simple Meters\n•\n•\nCompute (DBUs): Charged per second.\n• Autoscaling: Pay only when the database is active. $0 when idle.\nStorage: Standard monthly storage rates.\n2. The Launch Promotion (Limited Time)\n•\n•\n50% OFF Compute: We are applying a 50% discount on all Lakebase Compute DBUs.\nValidity: Active now through January 31, 2027.\n3. Key Dates for Billing\n•\nFebruary 1, 2026: Billing begins for Autoscaling instances (with 50% discount applied).\nNote: Full pricing details and FAQ available at our public pricing page (including FAQ)",
+          "note": "Promotions, billing dates and rates change. Confirm current details on the official Lakebase pricing page."
+        },
+        {
+          "n": 21,
           "title": "Billing system tables and audit",
-          "expectTitle": "Billing - System tables\nUsage by billing",
-          "text": "Audit\nLakebase access/creation/deletion available at system.access.audit\nDBSQL access to Lakebase tables available in system.query.history\nData API (PostgREST) is now GA with full CRUD, OAuth auth, and RLS – dedicated Data API audit logs not yet confirmed in system tables\nMonitoring",
+          "expectTitle": "Billing - System tables",
+          "text": "Monitoring\nBilling - System tables\n●\n●\n●\n●\n●\n●\nUsage by billing_origin_product = DATABASE (replaces ONLINE_TABLES)\nCompute: PREMIUM_DATABASE_SERVERLESS_COMPUTE_<REGION> SKU, billed in DBUs\nStorage: PREMIUM_DATABRICKS_STORAGE_<REGION> SKU, billed in DSUs (GB-month)\nSynced tables (Delta → Lakebase): Uses Lakeflow Spark Declarative Pipelines\n(dlt_pipeline_id in usage_metadata)\nusage_metadata.database_instance_id identifies the specific Lakebase instance\nCost analysis via system.billing.list_prices for time-banded rate lookups\nAudit\n●\n●\n●\nLakebase access/creation/deletion available at system.access.audit\nDBSQL access to Lakebase tables available in system.query.history\nData API (PostgREST) is now GA with full CRUD, OAuth auth, and RLS – dedicated Data API audit\nlogs not yet confirmed in system tables",
           "note": "Check table and column names against the current billing system-table documentation before relying on them."
         },
         {
-          "n": 30,
+          "n": 22,
           "title": "Built-in monitoring",
-          "expectTitle": "The database project metric tab provides",
-          "text": "Built-in Monitoring (Lakebase UI)\nAdditionally, it’s possible to use tools like pgAdmin or other pg-integrated tools to build dashboards to monitor the health of your postgres instance"
+          "expectTitle": "Built-in Monitoring",
+          "text": "Built-in Monitoring (Lakebase UI)\nThe database project metric tab provides a dashboard for monitoring the database usage\n●\n●\n●\n●\n●\n●\n●\n●\n●\n●\nMemory and CPU utilization\nTransactions per second - general observability for committed transaction throughput.\nRows per second - rows fetched, returned, inserted, updated, and deleted as tracked by the\nPostgreSQL database\nOpen connections\nStorage utilization\nCPU utilisation %\nPage read throughput %\nBuffer cache hit rate %\nLocal SSD cache hit rate %\nDeadlock per second\nAdditionally, it’s possible to use tools like pgAdmin or other pg-integrated tools to build dashboards to monitor the\nhealth of your postgres instance"
         }
       ]
     },
     {
       "key": "security",
       "title": "Security",
-      "modules": [
-        "security"
-      ],
       "summary": "Connect through Databricks services or directly over the Postgres wire protocol, authenticate with workspace OAuth or native Postgres logins, and authorise with native Postgres permissions or Unity Catalog governance.",
       "takeaways": [
         "Direct connections still pass through the platform's ingress security",
         "Pick workspace OAuth identities or Postgres-native credentials per use case",
         "Authorisation can be Postgres-native or governed through Unity Catalog"
       ],
+      "modules": [
+        "security"
+      ],
       "slides": [
         {
-          "n": 32,
+          "n": 24,
           "title": "Connectivity",
           "expectTitle": "Lakebase Connectivity",
-          "text": "Customers can connect to Lakebase using Databricks native services (notebooks, SQL Editor, REST API) and directly to the PostgreSQL service.\nDirect Connection\n(OAuth / Local Credentials)\nService\n(OAuth)\nDatabricks\nServerless\nDedicated PG Compute 1\nCustomer Workspace\nControl Plane\n(Web, Rest, Management)\nHTTPS\nPostgresql Wire \n Protocol\nUser\n(OAuth)\nDatabricks Services\nLakebase Storage Service\nToken\nIP ACLs\n-\nPrivate Link\n-\nDDOS protection\nIngress Security Layer\nHTTPS\nLakebase Security FAQ\nThe Serverless Security Overview: Lakebase + Lakebase: Security Video"
+          "text": "Lakebase Connectivity\nCustomers can connect to Lakebase using Databricks native services (notebooks, SQL\nEditor, REST API) and directly to the PostgreSQL service.\nDatabricks\nUser\n(OAuth)\nHTTPS\nService\n(OAuth)\nHTTPS\nDirect Connection\n(OAuth / Local Credentials)\nControl Plane\n(Web, Rest, Management)\nPostgresql Wire\nProtocol\nIngress\nSecurity\nLayer\nIP\nACLs\nPrivate\nLink\nDDOS\nprotec\ntion\nLakebase Security FAQ\nThe Serverless Security Overview: Lakebase + Lakebase: Security Video\nServerless\nCustomer Workspace\nDedicated PG Compute 1\nData sync\n(Optional)\nModel Serving\n(Optional)\nDatabricks Services\nToken\nApps / Agents\n(Optional)\nLakebase Storage\nService"
         },
         {
-          "n": 33,
+          "n": 25,
           "title": "Authentication",
-          "expectTitle": "Databricks Authentication",
-          "text": "Databricks managed Authentication\nLakebase Authentication\nLakebase provides PostgreSQL native and Workspace authentication options.\nPostgreSQL Authentication\nPostgreSQL Lakebase account authentication \nWorkspace user credentials (OAuth)\nPostgreSQL login\nDatabricks Service Authentication\nWorkspace user authentication (OAuth)\nDB managed OAuth M2M authentication"
+          "expectTitle": "Lakebase Authentication",
+          "text": "Lakebase Authentication\nLakebase provides PostgreSQL native and Workspace authentication\noptions.\nPostgreSQL\nAuthentication\nDatabricks managed\nAuthentication\nPostgreSQL Lakebase account\nauthentication\nDatabricks Service Authentication\n▪\n▪\nWorkspace user credentials\n(OAuth)\nPostgreSQL login\nDatabricks\nAuthentication\n■\n■\nWorkspace user\nauthentication (OAuth)\nDB managed OAuth M2M\nauthentication"
         },
         {
-          "n": 34,
+          "n": 26,
           "title": "Authorization",
-          "expectTitle": "Databricks Authentication",
-          "text": "Unity Catalog Governance\nLakebase Authorization\nLakebase provides PostgreSQL native and Unity Catalog authorization options.\nPostgreSQL Authorization\nPostgreSQL Lakebase account authorization\nNative permissions and privileges\nUnified Authorization\nUC-managed governance\nNative services such as Notebooks, REST API, DB SQL, PostgREST API, Model Serving and Apps"
+          "expectTitle": "Lakebase Authorization",
+          "text": "Lakebase Authorization\nLakebase provides PostgreSQL native and Unity Catalog authorization\noptions.\nPostgreSQL\nAuthorization\nPostgreSQL Lakebase account\nauthorization\n▪\nNative permissions and\nprivileges\nDatabricks\nAuthentication\nUnity Catalog\nGovernance\nUnified Authorization\n■\n■\nUC-managed governance\nNative services such as\nNotebooks, REST API, DB SQL,\nPostgREST API, Model Serving\nand Apps"
         }
       ]
     },
     {
       "key": "architecture",
       "title": "Autoscaling deep dive",
-      "modules": [
-        "performance",
-        "operations"
-      ],
       "summary": "A look under the hood: stateless computes in front of multi-tenant storage made of safekeepers, pageservers and object storage, spread across availability zones for resilience.",
       "takeaways": [
         "Writes are persisted to three safekeepers before they are acknowledged",
         "Pages are served from pageservers and reconstructed from object storage when needed",
         "Three availability zones and a standby pageserver give built-in redundancy"
       ],
+      "modules": [
+        "performance",
+        "operations"
+      ],
       "slides": [
         {
-          "n": 36,
+          "n": 28,
           "title": "What Lakebase Autoscaling includes",
-          "expectTitle": "Lakebase Autoscaling",
-          "text": "What’s Included:\nDisaggregated storage and compute\nAutoscaling \nScale to zero (5 min default)\nBranching \nPoint-In-Time-Recovery (PITR) \nHistory retention\nCustomer-Managed Keys (CMK)\nPageserver\nSafekeeper\nObject Storage\nSTORAGE\nCOMPUTE"
+          "expectTitle": "What’s Included",
+          "text": "STORAGE\nWhat’s Included:\n● Disaggregated storage and compute\n● Autoscaling\n● Scale to zero (5 min default)\n● Branching\n● Point-In-Time-Recovery (PITR)\n● History retention\n● Customer-Managed Keys (CMK)\nCOMPUT\nE\nLakebase Autoscaling\nPageserver\nSafekeeper\nObject Storage"
         },
         {
-          "n": 37,
+          "n": 29,
           "title": "Why autoscaling",
-          "expectTitle": "Single point of failure results in downt",
-          "text": "Why Autoscaling?\nLimitations of Traditional Monolithic PostgreSQL"
+          "expectTitle": "Why Autoscaling",
+          "text": "Why Autoscaling?\nLimitations of Traditional Monolithic PostgreSQL\n●\nSingle point of failure results in downtime or data loss\n○ Machine or datacenter failure\n○ Disk failure\n●\nScaling and Performance Limits\n○ Inefficient resource utilization across storage/compute\n○ Inefficient resource utilization across time (peak times)\n●\nRecovery and Resiliency\n○ Slow restores from backups (dependent on storage size)\n○ HA/DR complex to set up and maintain\n●\nHigh operational overhead\n○ Capacity planning, backups, replication, failover, manual recovery, etc."
         },
         {
-          "n": 38,
+          "n": 30,
           "title": "Architecture overview",
           "expectTitle": "Lakebase Architecture Overview",
-          "text": "Computes\nMulti-tenant Storage\nWrites\nReads"
+          "text": "Lakebase Architecture Overview\nComputes\nWrites\nReads\nMulti-tenant Storage\nPageserver(s)\nObject\nstorage\nSafekeeper\nSafekeeper\nSafekeeper"
         },
         {
-          "n": 39,
+          "n": 31,
           "title": "Storage: how data is written and read",
-          "expectTitle": "The customer dataset resides on one or m",
-          "text": "Storage\n* exception made for Postgres temp files and WAL files that needs to be streamed"
+          "expectTitle": "customer dataset resides",
+          "text": "Storage\n●\n●\n●\n●\nComputes\nThe customer dataset resides on one or more\nPageserver(s) and on Object Storage. Data are not\nstored locally*\nThe Lakebase storage layer is multi-tenant and cannot\nbe hosted in the customer workspace\nWrites: Compute writes to 3 safekeepers. When the\nsafekeepers reach consensus, the writes are persisted\nto object store and streamed to pageserver. When a\nwrite is persisted, it is considered committed\nReads: Compute reads from Pageserver. If the\nrequested page is not available locally, it is\nreconstructed from Object storage.\nget_page\n1. Walproposer\n2. commit_lsn\nSafekeeper\nSafekeeper\n3. WAL Streaming\nPageserver\nSafekeeper\nObject Storage\nLakebase Storage\n* exception made for Postgres temp\nfiles and WAL files that needs to be\nstreamed"
         },
         {
-          "n": 40,
+          "n": 32,
           "title": "Storage high availability",
           "expectTitle": "Storage HA Overview",
-          "text": "Computes\nMulti-tenant Storage\nAZ 1\nAZ 2\nAZ 3\nFailover across AZs\nX\nX\nX\nEach Postgres instance uses 3 safekeepers located in different AZs. If one Safekeeper or AZ fails, the system can still reach consensus. Built-in redundancy. Immediate recovery.\nEach Postgres instance is hosted on two pageservers: one active node and one secondary failover node, both nodes being located in different AZs. If a Pageserver fails, reads are automatically routed to the secondary failover node. Recovery in a few seconds.\nObject storage has built-in multi-AZ redundancy. Immediate recovery."
+          "text": "Storage HA Overview\nComputes\nMulti-tenant Storage\nAZ 1\nPageserver X\nX\n●\n●\n●\nSafekeeper X\nAZ 2\nFailover across AZs\nSafekeeper\nAZ 3\nPageserver\nObject\nstorage\nSafekeeper\nEach Postgres instance uses 3 safekeepers located in different AZs. If one Safekeeper or AZ fails, the\nsystem can still reach consensus. Built-in redundancy. Immediate recovery.\nEach Postgres instance is hosted on two pageservers: one active node and one secondary failover\nnode, both nodes being located in different AZs. If a Pageserver fails, reads are automatically routed to\nthe secondary failover node. Recovery in a few seconds.\nObject storage has built-in multi-AZ redundancy. Immediate recovery."
         }
       ]
     }

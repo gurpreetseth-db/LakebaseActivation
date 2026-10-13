@@ -17,7 +17,7 @@ describe('slide allow-list', () => {
   test('held slides are removed from the approved ranges', () => {
     const allowed = allowedSlides(config);
     expect(allowed.has(5)).toBe(true);
-    expect(allowed.has(23)).toBe(false); // outside the approved ranges
+    expect(allowed.has(34)).toBe(false); // outside the approved range
     for (const held of Object.keys(config.fieldkit.heldSlides)) expect(allowed.has(Number(held))).toBe(false);
   });
 
@@ -59,7 +59,6 @@ describe('Field Kit content', () => {
     const blob = JSON.stringify(pub);
     expect(blob).not.toContain('DATABRICKS INTERNAL ONLY');
     expect(blob).not.toMatch(/#(apa|emea)-lakebase/);
-    expect(blob).not.toContain(config.fieldkit.deckId);
     expect(blob).not.toContain('expectTitle');
   });
 
@@ -69,12 +68,13 @@ describe('Field Kit content', () => {
     }
   });
 
-  // Before the first `node scripts/sync-fieldkit.mjs` there are no images at all (the tab then shows slide
+  // Before the first `node scripts/build-fieldkit.mjs` there are no images at all (the tab then shows slide
   // text instead). Once any exist, a partial set is a mistake worth failing on.
   const present = served.filter((n) => existsSync(join(process.cwd(), 'client/public', config.fieldkit.imageDir, slideFile(n))));
-  test.skipIf(present.length === 0)('images exist for every served slide once the sync has run', () => {
+  test.skipIf(present.length === 0)('images exist for every served slide once the build has run', () => {
     const missing = served.filter((n) => !present.includes(n));
-    expect(missing, `missing images for slides: ${missing.join(', ')} (run scripts/sync-fieldkit.mjs)`).toEqual([]);
+    expect(missing, `missing images for slides: ${missing.join(', ')} (run scripts/build-fieldkit.mjs)`).toEqual([]);
+    expect(existsSync(join(process.cwd(), 'client/public', config.fieldkit.imageDir, config.fieldkit.pdfFile))).toBe(true);
   });
 });
 

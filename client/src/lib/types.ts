@@ -197,7 +197,6 @@ export interface CertificateData {
 export interface FieldkitSlide {
   n: number;
   title: string;
-  text: string;
   note?: string;
   image: string;
 }
@@ -214,6 +213,7 @@ export interface FieldkitSection {
 export interface Fieldkit {
   deckTitle: string;
   edition: string;
+  pdf: string;
   sections: FieldkitSection[];
 }
 

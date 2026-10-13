@@ -1,5 +1,5 @@
 {
-  "$comment": "SINGLE SOURCE OF TRUTH. Every tunable value lives here; code references these variables only. Edit this file (and config/content/*.json) and republish the app to change branding, modules, scoring, the AI endpoint, or the Lakebase target (project/branch/database/schema). deployment.* drives scripts/deploy.mjs (empty space = no space; empty sourcePath = your workspace home). fieldkit.deckId and heldSlides are server-only. program.adminEmails is matched against the platform-injected x-forwarded-email (never sent to the browser). Secrets are NOT configured here \u2014 they come from app.yaml / platform env. The platform-injected LAKEBASE_ENDPOINT always wins over lakebase.endpoint.",
+  "$comment": "SINGLE SOURCE OF TRUTH. Every tunable value lives here; code references these variables only. Edit this file (and config/content/*.json) and republish the app to change branding, modules, scoring, the AI endpoint, or the Lakebase target (project/branch/database/schema). deployment.* drives scripts/deploy.mjs (empty space = no space; empty sourcePath = your workspace home). fieldkit.heldSlides is server-only. program.adminEmails is matched against the platform-injected x-forwarded-email (never sent to the browser). Secrets are NOT configured here \u2014 they come from app.yaml / platform env. The platform-injected LAKEBASE_ENDPOINT always wins over lakebase.endpoint.",
 
   "lakebase": {
     "enabled": true,
@@ -34,13 +34,15 @@
     "enabled": true,
     "deckTitle": "Lakebase Field Kit",
     "edition": "Q1 FY27",
-    "deckId": "1abSt2iu36D2MhJLmWYRSVLljz8ZV3uPGBACtoYm8Cfc",
-    "approvedSlides": "4-22,29-40",
+    "approvedSlides": "1-33",
     "heldSlides": {
-      "4": "Marked 'Databricks internal only' on the slide; names individuals and internal channels",
-      "18": "Unfinished qualification template containing internal SME instructions"
+      "1": "Cover page, not content",
+      "23": "Section divider (Security), not content",
+      "27": "Section divider (Autoscaling deep dive), not content",
+      "33": "Blank trailing page, not content"
     },
-    "imageDir": "fieldkit-slides"
+    "imageDir": "fieldkit-slides",
+    "pdfFile": "lakebase-field-kit-selected-slides.pdf"
   },
 
   "branding": {
