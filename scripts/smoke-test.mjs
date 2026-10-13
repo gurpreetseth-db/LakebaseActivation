@@ -94,9 +94,11 @@ await check('Field Kit serves cleared slides only', async () => {
   const held = Object.keys(config.fieldkit.heldSlides).map(Number);
   const nums = r.json.sections.flatMap((s) => s.slides.map((x) => x.n));
   must(!nums.some((n) => held.includes(n)), `held slide served: ${nums.filter((n) => held.includes(n))}`);
-  must(!r.text.includes(config.fieldkit.deckId), 'deck id leaked to the browser');
   const probe = await http('GET', r.json.sections[0].slides[0].image);
-  must(probe.status === 200, `slide images not deployed yet (HTTP ${probe.status}) — run scripts/sync-fieldkit.mjs`);
+  // A missing file is answered with the app's HTML page (HTTP 200), so also check it is not HTML.
+  must(probe.status === 200 && !probe.text.startsWith('<'), `slide images not deployed yet (HTTP ${probe.status}) — run scripts/build-fieldkit.mjs`);
+  const pdf = await http('GET', r.json.pdf);
+  must(pdf.status === 200 && !pdf.text.startsWith('<'), `selected-slides PDF not deployed (HTTP ${pdf.status})`);
   return `${nums.length} slides`;
 });
 await check('certificate verification rejects bad ids', async () => {

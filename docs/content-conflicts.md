@@ -7,7 +7,7 @@ Source precedence used: (1) the `databricks-lakebase` agent skill for product fa
 | Topic | Skill | Blog | Deck | App says | Action for reviewer |
 |---|---|---|---|---|---|
 | Provisioned tier | Retired; Autoscaling only | Not mentioned | Still describes Provisioned (connection limit "1000 for Provisioned") | Autoscaling only | Confirm timing of the Provisioned migration before customer-facing claims |
-| Max data size | 8 TB logical per branch | "up to 8TB" (was 2 TB) | 16 TB | **16 TB** (program owner's decision, matching the deck) | The skill and the older blog say 8 TB. Confirm 16 TB against current public documentation before partners rely on it |
+| Max data size | 8 TB logical per branch | "up to 8TB" (was 2 TB) | 16 TB on slide 14; slide 15 says "exceeds the 8TB limit" | **8 TB** (confirmed by the program owner) | Slide 14 still shows 16TB; it carries a note, or correct the deck |
 | Max connections | 4,000 cap at 32 CU+ | Not stated | 4,000 | 4,000 | None |
 | Max autoscale compute | 32 CU, max-min spread ≤ 16 CU | Not stated | 32 CU | 32 CU, spread ≤ 16 | None |
 | Postgres versions | 16 and 17 (default 17) | 16 and 17 | 16, 17 and 18 | 16 and 17 | Confirm whether 18 is generally available |
@@ -20,13 +20,21 @@ Source precedence used: (1) the `databricks-lakebase` agent skill for product fa
 
 ## Field Kit slides shown to partners
 
-Cleared by the program owner: slides 4–22 and 29–40, with these held back by default (see `fieldkit.heldSlides`):
+The Field Kit is built from a curated PDF cut of the deck prepared by the program owner (33 pages). 29 pages are shown;
+the cover, two section dividers and a trailing blank page are not. Content is taken verbatim from that PDF.
 
-- **Slide 4** — marked "Databricks internal only" on the slide; names individuals and internal channels.
-- **Slide 18** — unfinished qualification template containing internal SME instructions.
+Points to be aware of, where a slide disagrees with the rest of the app:
 
-Slide 17 is shown with a note on its "1000 for Lakebase Provisioned" connection figure, because Provisioned has been retired.
-Its 16 TB storage figure is used as-is and now matches the Fit-checker and Ask Lakebase.
+- **Storage limit.** The app states 8 TB of logical data per branch (confirmed by the program owner), as do the Lakebase
+  agent skill and the Databricks blog. Slide 14 still reads "16TB of Storage", and slide 15 says both "Size > 16TB" and
+  "Dataset exceeds the 8TB limit". Both slides carry a note giving the current limit. Correcting slide 14 in the deck and
+  rebuilding would let the note on that slide be removed.
+- **Slide 20 (Pricing)** states a launch promotion (50% off compute through January 31, 2027) and a billing start date. These
+  change; the slide carries a note to confirm on the official pricing page, and the app's Pricing page stores no rates.
+- **Slide 15 (Qualification)** is written as seller guidance ("Walk Away", "you should win your first proof-point"). It is shown as
+  provided.
+
+(The earlier "1000 for Lakebase provisioned" wording on slide 14 has been removed from the deck.)
 
 ## Known gaps
 

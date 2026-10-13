@@ -89,7 +89,6 @@ describe('public content and config', () => {
     expect(r.json.program.adminEmails).toBeUndefined();
     expect(r.json.program.certificate.enabled).toBeDefined();
     // Internal Field Kit details stay server-side.
-    expect(r.text).not.toContain(config.fieldkit.deckId);
     expect(r.json.fieldkit).toEqual({ enabled: config.fieldkit.enabled });
     for (const reason of Object.values(config.fieldkit.heldSlides)) expect(r.text).not.toContain(reason);
   });
@@ -101,8 +100,8 @@ describe('public content and config', () => {
     const nums = sections.flatMap((s) => s.slides.map((x) => x.n));
     expect(nums.length).toBeGreaterThan(0);
     for (const held of Object.keys(config.fieldkit.heldSlides)) expect(nums).not.toContain(Number(held));
-    expect(r.text).not.toContain(config.fieldkit.deckId);
     expect(r.text).not.toContain('expectTitle');
+    expect(r.json.pdf).toBe(`/${config.fieldkit.imageDir}/${config.fieldkit.pdfFile}`);
     expect(r.json.sections[0].slides[0].image).toBe(`/${config.fieldkit.imageDir}/slide-${String(r.json.sections[0].slides[0].n).padStart(2, '0')}.png`);
     // Must not share a name with the /fieldkit page route, or static serving would shadow it.
     expect(config.fieldkit.imageDir).not.toBe('fieldkit');

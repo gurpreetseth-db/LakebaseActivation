@@ -214,6 +214,7 @@ export interface FieldkitSection {
 export interface Fieldkit {
   deckTitle: string;
   edition: string;
+  pdf: string;
   sections: FieldkitSection[];
 }
 

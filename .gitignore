@@ -12,3 +12,6 @@ playwright-report/
 # Auto-generated types (endpoint-specific, varies per developer)
 shared/appkit-types/serving.d.ts
 
+
+# The full Field Kit export is Databricks-internal; only cleared slides are built from it into client/public/
+fieldkit-source/

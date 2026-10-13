@@ -61,13 +61,13 @@ export const appConfigSchema = z.object({
     enabled: z.boolean(),
     deckTitle: z.string(),
     edition: z.string(),
-    /** Server-only: never sent to the browser. */
-    deckId: z.string(),
     /** Slide numbers cleared for partners, e.g. "4-22,29-40". */
     approvedSlides: z.string().regex(/^\d+(-\d+)?(,\d+(-\d+)?)*$/, 'use numbers and ranges like "4-22,29-40"'),
     /** Server-only: slides inside the approved ranges that are withheld, with the reason. */
     heldSlides: z.record(z.string().regex(/^\d+$/), z.string()),
     imageDir: z.string().regex(/^[a-z0-9_-]+$/i),
+    /** PDF of the cleared slides only, built by scripts/build-fieldkit.mjs into imageDir. */
+    pdfFile: z.string().regex(/^[a-z0-9_.-]+\.pdf$/i),
   }),
   program: z.object({
     adminEmails: z.array(z.string().email()),
