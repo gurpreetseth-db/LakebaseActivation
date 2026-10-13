@@ -171,7 +171,7 @@ node scripts/build-fieldkit.mjs             # render PNGs and the cleared-slides
 Only cleared pages are rendered or copied. The script compares each page's text with `expectTitle` in `fieldkit.json`
 and skips any page that does not match (the deck was reordered; `--force` overrides after checking), and it deletes
 files for slides that are no longer cleared. The tab offers a slide viewer and an embedded PDF with a download button.
-Until the files exist, the viewer shows each slide's text and the PDF option is disabled. Where a slide conflicts with
+Until the files exist, the viewer shows only the slide title and the PDF option is disabled. Slide text is not displayed or sent to the browser; it is kept server-side only so Ask Lakebase can search and cite slides. Where a slide conflicts with
 current documentation it carries a `note` (see `docs/content-conflicts.md`).
 
 ## Optional: Lakehouse Sync

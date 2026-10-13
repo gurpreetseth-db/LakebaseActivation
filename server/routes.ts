@@ -359,7 +359,12 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
       res.status(404).json({ error: 'Field Kit is disabled' });
       return;
     }
-    res.json(loadPublicFieldkit(config));
+    // Slide text stays server-side (it feeds Ask Lakebase search); the tab shows the slide images.
+    const kit = loadPublicFieldkit(config);
+    res.json({
+      ...kit,
+      sections: kit.sections.map((s) => ({ ...s, slides: s.slides.map(({ text: _text, ...slide }) => slide) })),
+    });
   });
 
   app.get('/api/content/pitfalls', (_req, res) => {

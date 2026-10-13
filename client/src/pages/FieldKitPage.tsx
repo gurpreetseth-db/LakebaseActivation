@@ -35,7 +35,7 @@ function SlideView({ slide, onFull }: { slide: FieldkitSlide; onFull: () => void
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Slide image not available yet
           </p>
-          <p className="whitespace-pre-line text-foreground">{slide.text}</p>
+          <p className="text-foreground">{slide.title}</p>
         </div>
       ) : (
         <button
@@ -267,11 +267,6 @@ export function FieldKitPage() {
                     <AlertDescription>{slide.note}</AlertDescription>
                   </Alert>
                 ) : null}
-
-                <details className="rounded-lg border bg-card p-3 text-sm">
-                  <summary className="cursor-pointer font-medium text-foreground">Slide text</summary>
-                  <p className="mt-2 whitespace-pre-line text-muted-foreground">{slide.text}</p>
-                </details>
 
                 <div className="nav-scroll flex gap-2 overflow-x-auto pb-1" aria-label="Slides in this section">
                   {slides.map((s, i) => (

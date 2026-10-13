@@ -101,6 +101,8 @@ describe('public content and config', () => {
     expect(nums.length).toBeGreaterThan(0);
     for (const held of Object.keys(config.fieldkit.heldSlides)) expect(nums).not.toContain(Number(held));
     expect(r.text).not.toContain('expectTitle');
+    // Raw slide text is not sent to the browser (it is only used for Ask Lakebase search).
+    expect(r.json.sections[0].slides[0].text).toBeUndefined();
     expect(r.json.pdf).toBe(`/${config.fieldkit.imageDir}/${config.fieldkit.pdfFile}`);
     expect(r.json.sections[0].slides[0].image).toBe(`/${config.fieldkit.imageDir}/slide-${String(r.json.sections[0].slides[0].n).padStart(2, '0')}.png`);
     // Must not share a name with the /fieldkit page route, or static serving would shadow it.

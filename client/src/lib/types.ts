@@ -197,7 +197,6 @@ export interface CertificateData {
 export interface FieldkitSlide {
   n: number;
   title: string;
-  text: string;
   note?: string;
   image: string;
 }
