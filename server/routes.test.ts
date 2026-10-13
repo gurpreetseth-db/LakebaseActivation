@@ -88,6 +88,24 @@ describe('public content and config', () => {
     expect(r.text).not.toContain(ADMIN);
     expect(r.json.program.adminEmails).toBeUndefined();
     expect(r.json.program.certificate.enabled).toBeDefined();
+    // Internal Field Kit details stay server-side.
+    expect(r.text).not.toContain(config.fieldkit.deckId);
+    expect(r.json.fieldkit).toEqual({ enabled: config.fieldkit.enabled });
+    for (const reason of Object.values(config.fieldkit.heldSlides)) expect(r.text).not.toContain(reason);
+  });
+
+  test('Field Kit is served with approved slides only and no internal details', async () => {
+    const r = await t.call('GET', '/api/content/fieldkit');
+    expect(r.status).toBe(200);
+    const sections = r.json.sections as { slides: { n: number }[] }[];
+    const nums = sections.flatMap((s) => s.slides.map((x) => x.n));
+    expect(nums.length).toBeGreaterThan(0);
+    for (const held of Object.keys(config.fieldkit.heldSlides)) expect(nums).not.toContain(Number(held));
+    expect(r.text).not.toContain(config.fieldkit.deckId);
+    expect(r.text).not.toContain('expectTitle');
+    expect(r.json.sections[0].slides[0].image).toBe(`/${config.fieldkit.imageDir}/slide-${String(r.json.sections[0].slides[0].n).padStart(2, '0')}.png`);
+    // Must not share a name with the /fieldkit page route, or static serving would shadow it.
+    expect(config.fieldkit.imageDir).not.toBe('fieldkit');
   });
 
   test('questions are served without answers or explanations', async () => {

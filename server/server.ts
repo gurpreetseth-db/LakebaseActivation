@@ -5,6 +5,7 @@ import { createRepo, type Repo } from './db/repo.js';
 import { buildChunks } from './knowledge/chunks.js';
 import { createEmbedder, type Embedder } from './knowledge/embed.js';
 import { ensureKnowledgeSchema, search, stats, syncChunks } from './knowledge/store.js';
+import { loadPublicFieldkit } from './content/fieldkit.js';
 import { registerRoutes } from './routes.js';
 
 // Load config once at startup. Bridge the AI endpoint name from the single
@@ -50,6 +51,7 @@ await createApp({
       fit: loadFit(),
       demo: loadDemo(),
       knowledge: loadKnowledge(),
+      fieldkit: config.fieldkit.enabled ? loadPublicFieldkit(config) : undefined,
     });
     let embedder: Embedder | null = null;
     let vectorEnabled = false;

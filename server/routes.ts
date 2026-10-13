@@ -11,6 +11,7 @@ import {
   type AppConfig,
 } from './content/loader.js';
 import { evaluateFit } from './content/fit.js';
+import { loadPublicFieldkit } from './content/fieldkit.js';
 import type { Repo } from './db/repo.js';
 import { buildAskPrompt, citationsFor, docLinksFor } from './knowledge/rag.js';
 import { resolveDoc } from './knowledge/chunks.js';
@@ -154,9 +155,10 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
   // --- Single config (non-secret; safe to send to the browser) ---
   app.get('/api/config', (_req, res) => {
     // The admin allow-list is server-only.
-    const { program, ...rest } = loadConfig();
+    const { program, fieldkit, ...rest } = loadConfig();
     const { adminEmails: _admins, ...publicProgram } = program;
-    res.json({ ...rest, program: publicProgram });
+    // Deck id and held-slide reasons are internal; the browser only needs to know the tab exists.
+    res.json({ ...rest, program: publicProgram, fieldkit: { enabled: fieldkit.enabled } });
   });
 
   // --- Admin: cohort progress, weak topics, exports (allow-listed platform identity) ---
@@ -350,6 +352,14 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
     } catch (err) {
       res.json({ ready: false, vector: ctx.knowledge.vector(), chunks: 0, embedded: 0, error: (err as Error).message });
     }
+  });
+
+  app.get('/api/content/fieldkit', (_req, res) => {
+    if (!config.fieldkit.enabled) {
+      res.status(404).json({ error: 'Field Kit is disabled' });
+      return;
+    }
+    res.json(loadPublicFieldkit(config));
   });
 
   app.get('/api/content/pitfalls', (_req, res) => {

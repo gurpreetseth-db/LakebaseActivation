@@ -17,6 +17,7 @@ export interface LakebaseStatus extends LakebaseTarget {
 
 export interface AppConfig {
   lakebase: LakebaseTarget & { endpoint: string };
+  fieldkit: { enabled: boolean };
   program: {
     leaderboard: { enabled: boolean; topN: number };
     certificate: { enabled: boolean; requireAllModules: boolean; title: string; issuer: string; signatory: string };
@@ -191,6 +192,29 @@ export interface CertificateData {
   title: string;
   issuer: string;
   signatory?: string;
+}
+
+export interface FieldkitSlide {
+  n: number;
+  title: string;
+  text: string;
+  note?: string;
+  image: string;
+}
+
+export interface FieldkitSection {
+  key: string;
+  title: string;
+  summary: string;
+  takeaways: string[];
+  modules: string[];
+  slides: FieldkitSlide[];
+}
+
+export interface Fieldkit {
+  deckTitle: string;
+  edition: string;
+  sections: FieldkitSection[];
 }
 
 export interface Partner {

@@ -27,6 +27,7 @@ import {
   ExternalLink,
   FlaskConical,
   ListChecks,
+  Presentation,
   Sparkles,
   Target,
   XCircle,
@@ -35,10 +36,10 @@ import { useAppData } from '@/lib/AppData';
 import { ModuleIcon } from '@/lib/icons';
 import { Markdown } from '@/lib/Markdown';
 import { LevelBadge } from '@/components/common';
-import { explainAnswer, fetchLabs, gradeModule, saveLab } from '@/lib/api';
+import { explainAnswer, fetchFieldkit, fetchLabs, gradeModule, saveLab } from '@/lib/api';
 import { loadLabsLocal, saveLabLocal } from '@/lib/storage';
 import { shuffle } from '@/lib/shuffle';
-import type { GradeResponse } from '@/lib/types';
+import type { FieldkitSection, GradeResponse } from '@/lib/types';
 
 export function ModulePage() {
   const { moduleKey = '' } = useParams();
@@ -62,8 +63,16 @@ export function ModulePage() {
   const [explaining, setExplaining] = useState('');
   const [labSteps, setLabSteps] = useState<number[]>(() => loadLabsLocal()[moduleKey] ?? []);
   const [labNote, setLabNote] = useState('');
+  const [kitSections, setKitSections] = useState<FieldkitSection[]>([]);
 
   const email = partner?.email;
+  useEffect(() => {
+    if (!config.fieldkit.enabled) return;
+    fetchFieldkit()
+      .then((kit) => setKitSections(kit.sections.filter((s) => s.modules.includes(moduleKey))))
+      .catch(() => setKitSections([]));
+  }, [config.fieldkit.enabled, moduleKey]);
+
   useEffect(() => {
     if (!email) return;
     fetchLabs(email)
@@ -204,6 +213,22 @@ export function ModulePage() {
               {content.overview.map((p, i) => (
                 <Markdown key={i} text={p} />
               ))}
+              {kitSections.length > 0 ? (
+                <>
+                  <Separator className="my-4" />
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Field Kit slides</p>
+                  <div className="flex flex-wrap gap-2">
+                    {kitSections.map((s) => (
+                      <Link key={s.key} to={`/fieldkit/${s.key}`}>
+                        <Badge variant="secondary" className="gap-1">
+                          <Presentation className="h-3 w-3" />
+                          {s.title} · {s.slides.length} slides
+                        </Badge>
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              ) : null}
               {content.docLinks.length > 0 ? (
                 <>
                   <Separator className="my-4" />

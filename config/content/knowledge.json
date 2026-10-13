@@ -72,7 +72,7 @@
       "kind": "fact",
       "module": "operations",
       "title": "Branch expiry and limits",
-      "content": "Every branch needs an expiration policy: no expiry, or a time to live up to 30 days. A project can have 10 unarchived branches, and a branch can hold up to 8 TB of logical data. Typical TTLs: CI environments 2-4 hours, demos 1-2 days, feature work 1-7 days. Never delete the production branch.",
+      "content": "Every branch needs an expiration policy: no expiry, or a time to live up to 30 days. A project can have 10 unarchived branches, and a branch can hold up to 16 TB of logical data. Typical TTLs: CI environments 2-4 hours, demos 1-2 days, feature work 1-7 days. Never delete the production branch.",
       "docs": [
         "/manage-branches/"
       ]
@@ -187,7 +187,7 @@
       "kind": "gotcha",
       "module": "fundamentals",
       "title": "What Lakebase is not for",
-      "content": "Lakebase is an OLTP database. Do not use it for large-scale OLAP, for more than 4,000 concurrent connections, or for more than 8 TB in a branch. Do not split data across branches or projects to get around limits. Migrations from non-Postgres databases need extra assessment and a phased plan.",
+      "content": "Lakebase is an OLTP database. Do not use it for large-scale OLAP, for more than 4,000 concurrent connections, or for more than 16 TB in a branch. Do not split data across branches or projects to get around limits. Migrations from non-Postgres databases need extra assessment and a phased plan.",
       "docs": [
         "/use-cases/",
         "/index/"

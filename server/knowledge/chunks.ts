@@ -5,6 +5,7 @@
  */
 import { createHash } from 'node:crypto';
 import type { AppConfig, DemoContent, FitContent, KnowledgeContent, ModulesContent, Question } from '../content/loader.js';
+import type { PublicFieldkit } from '../content/fieldkit.js';
 
 export interface DocRef {
   label: string;
@@ -56,8 +57,10 @@ export function buildChunks(input: {
   fit: FitContent;
   demo: DemoContent;
   knowledge: KnowledgeContent;
+  /** Already filtered to approved slides (use loadPublicFieldkit). */
+  fieldkit?: PublicFieldkit;
 }): Chunk[] {
-  const { config, modules, questions, fit, demo, knowledge } = input;
+  const { config, modules, questions, fit, demo, knowledge, fieldkit } = input;
   const chunks: Chunk[] = [];
   const base = config.branding.docsBaseUrl;
   const moduleDocs = (key: string): DocRef[] =>
@@ -92,6 +95,17 @@ export function buildChunks(input: {
 
   for (const s of demo.sections) {
     chunks.push(make(`demo:${s.key}`, 'Demo walkthrough', s.title, [...s.body, ...s.steps].join('\n')));
+  }
+
+  for (const section of fieldkit?.sections ?? []) {
+    for (const sl of section.slides) {
+      chunks.push(
+        make(`fk:${sl.n}`, `Field Kit: ${section.title}`, sl.title, sl.text, [
+          // In-app link (not an external doc): opens the slide in the Field Kit tab.
+          { label: `Field Kit — ${section.title}`, url: `/fieldkit/${section.key}?slide=${sl.n}` },
+        ]),
+      );
+    }
   }
 
   return chunks;

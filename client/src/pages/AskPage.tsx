@@ -142,15 +142,24 @@ export function AskPage() {
                             <ul className="space-y-1">
                               {t.answer.links.map((l) => (
                                 <li key={l.url}>
-                                  <a
-                                    href={l.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline"
-                                  >
-                                    {l.label}
-                                    <ExternalLink className="h-3 w-3" aria-hidden />
-                                  </a>
+                                  {l.url.startsWith('/') ? (
+                                    <Link
+                                      to={l.url}
+                                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline"
+                                    >
+                                      {l.label}
+                                    </Link>
+                                  ) : (
+                                    <a
+                                      href={l.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline"
+                                    >
+                                      {l.label}
+                                      <ExternalLink className="h-3 w-3" aria-hidden />
+                                    </a>
+                                  )}
                                 </li>
                               ))}
                             </ul>

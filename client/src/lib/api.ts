@@ -4,6 +4,7 @@ import type {
   CertificateData,
   LeaderboardResponse,
   DemoContent,
+  Fieldkit,
   FitContent,
   FitResult,
   GradeResponse,
@@ -110,6 +111,10 @@ export async function askLakebase(question: string, email?: string): Promise<Ask
   const data = (await res.json()) as AskResponse & { error?: string };
   if (!res.ok) throw new Error(data.error || `Ask failed: ${res.status}`);
   return data;
+}
+
+export function fetchFieldkit(): Promise<Fieldkit> {
+  return getJson<Fieldkit>('/api/content/fieldkit');
 }
 
 export function fetchDemo(): Promise<DemoContent> {
