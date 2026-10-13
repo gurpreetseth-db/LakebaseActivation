@@ -58,4 +58,14 @@ describe('content files', () => {
     expect(lakebase.database.startsWith(lakebase.branch)).toBe(true);
     expect(lakebase.endpoint.startsWith(lakebase.branch)).toBe(true);
   });
+
+  test('every documentation link has a bullet summary and the module is dated', () => {
+    const modules = loadModules();
+    for (const [key, m] of Object.entries(modules.modules)) {
+      expect(m.docsCheckedOn, `module ${key} needs docsCheckedOn`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      for (const d of m.docLinks) {
+        expect(d.summary.length, `${key} ${d.path} has no summary`).toBeGreaterThan(0);
+      }
+    }
+  });
 });

@@ -232,22 +232,34 @@ export function ModulePage() {
               {content.docLinks.length > 0 ? (
                 <>
                   <Separator className="my-4" />
-                  <p className="mb-2 text-xs font-medium text-muted-foreground">Documentation</p>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="mb-2 text-xs font-medium text-muted-foreground">Documentation at a glance</p>
+                  <div className="space-y-4">
                     {content.docLinks.map((d) => (
-                      <a
-                        key={d.path}
-                        href={`${config.branding.docsBaseUrl}${d.path}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Badge variant="outline" className="gap-1">
+                      <div key={d.path}>
+                        <a
+                          href={`${config.branding.docsBaseUrl}${d.path}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                        >
                           {d.label}
-                          <ExternalLink className="h-3 w-3" />
-                        </Badge>
-                      </a>
+                          <ExternalLink className="h-3 w-3" aria-hidden />
+                        </a>
+                        {d.summary.length > 0 ? (
+                          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                            {d.summary.map((b) => (
+                              <li key={b}>{b}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
                     ))}
                   </div>
+                  {content.docsCheckedOn ? (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Summarised from the linked pages on {content.docsCheckedOn}. The documentation is the source of truth.
+                    </p>
+                  ) : null}
                 </>
               ) : null}
             </CardContent>
