@@ -78,6 +78,13 @@ export function buildChunks(input: {
     splitText(body).forEach((part, i) =>
       chunks.push(make(`mod:${meta.key}:${i}`, `Module: ${meta.title}`, meta.title, part, moduleDocs(meta.key))),
     );
+    const summarised = m.docLinks.filter((d) => d.summary.length > 0);
+    if (summarised.length > 0) {
+      const text = summarised.map((d) => `${d.label}:\n- ${d.summary.join('\n- ')}`).join('\n\n');
+      splitText(text).forEach((part, i) =>
+        chunks.push(make(`docs:${meta.key}:${i}`, `Documentation summary: ${meta.title}`, `${meta.title} — documentation summary`, part, moduleDocs(meta.key))),
+      );
+    }
     chunks.push(
       make(`lab:${meta.key}`, `Lab: ${meta.title}`, m.lab.title, `${m.lab.intro}\n${m.lab.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`, moduleDocs(meta.key)),
     );

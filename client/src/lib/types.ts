@@ -58,7 +58,8 @@ export interface ModuleContent {
   objectives: string[];
   overview: string[];
   lab: { title: string; intro: string; steps: string[] };
-  docLinks: { label: string; path: string }[];
+  docLinks: { label: string; path: string; summary: string[] }[];
+  docsCheckedOn?: string;
 }
 
 export type ModulesContent = Record<string, ModuleContent>;

@@ -1,6 +1,5 @@
 {
   "$comment": "Per-module learning collateral: concept overview, learning objectives, hands-on lab steps, and documentation links. Keyed by module key in app.config.json. Edit and republish to update learning content.",
-
   "modules": {
     "fundamentals": {
       "objectives": [
@@ -12,26 +11,42 @@
       "overview": [
         "Lakebase is a fully managed, PostgreSQL-compatible OLTP database built on a cloud-native architecture that **separates compute from storage**. Unlike traditional Postgres where one server owns both query processing and its disk, Lakebase runs stateless compute that can scale, suspend, and fail over independently of the durable storage layer.",
         "The storage layer has three cooperating components. **Safekeepers** durably replicate the write-ahead log (WAL) using Paxos consensus so no committed transaction is lost (RPO = 0). **Pageservers** reconstruct database pages on demand from the WAL and serve them to compute. The **WAL** is the single source of truth that makes copy-on-write branching and point-in-time restore possible.",
-        "Lakebase is the OLTP pillar of Databricks' **LTAP** (Lake Transactional and Analytical Processing) vision: one governed copy of data serves both low-latency transactional apps and lakehouse analytics, with bidirectional integration to Unity Catalog \u2014 sync UC tables into Postgres, and capture Postgres changes back into Delta.",
-        "Because compute is stateless, Lakebase unlocks capabilities that are hard with vanilla Postgres: instant branches (no data copy), scale-to-zero, instant read replicas, and point-in-time restore \u2014 all without the operational burden of managing replication, backups, and failover yourself."
+        "Lakebase is the OLTP pillar of Databricks' **LTAP** (Lake Transactional and Analytical Processing) vision: one governed copy of data serves both low-latency transactional apps and lakehouse analytics, with bidirectional integration to Unity Catalog — sync UC tables into Postgres, and capture Postgres changes back into Delta.",
+        "Because compute is stateless, Lakebase unlocks capabilities that are hard with vanilla Postgres: instant branches (no data copy), scale-to-zero, instant read replicas, and point-in-time restore — all without the operational burden of managing replication, backups, and failover yourself."
       ],
       "lab": {
         "title": "Guided tour of the Lakebase architecture",
-        "intro": "No workspace changes required \u2014 this lab builds a mental model you'll reuse in every later module.",
+        "intro": "No workspace changes required — this lab builds a mental model you'll reuse in every later module.",
         "steps": [
-          "Open the Lakebase section of your Databricks workspace (Compute \u2192 Database / OLTP).",
+          "Open the Lakebase section of your Databricks workspace (Compute → Database / OLTP).",
           "Locate the architecture diagram in the docs and identify compute vs. the storage layer.",
-          "Trace a write: client \u2192 compute \u2192 WAL \u2192 safekeepers (Paxos) \u2192 pageservers. Note where durability is guaranteed (RPO = 0).",
+          "Trace a write: client → compute → WAL → safekeepers (Paxos) → pageservers. Note where durability is guaranteed (RPO = 0).",
           "List three things Lakebase can do that self-managed Postgres cannot (instant branches, scale-to-zero, instant read replicas).",
           "Write one sentence explaining LTAP to a customer in your own words."
         ]
       },
       "docLinks": [
-        { "label": "Architecture", "path": "/architecture/" },
-        { "label": "Core concepts", "path": "/core-concepts/" }
-      ]
+        {
+          "label": "Architecture",
+          "path": "/architecture/",
+          "summary": [
+            "Storage and compute are separate: Postgres compute is stateless, and data lives in a durable layer (safekeepers for WAL, pageservers for pages, S3 for object storage).",
+            "A commit is acknowledged once a quorum of safekeepers has the WAL, which is why committed data has zero RPO on failover.",
+            "This design enables autoscaling, scale-to-zero, instant copy-on-write branches, read replicas and point-in-time queries."
+          ]
+        },
+        {
+          "label": "Core concepts",
+          "path": "/core-concepts/",
+          "summary": [
+            "A project is the top-level container for branches, computes and databases; its region is the workspace region.",
+            "Autoscaling adjusts compute within a configured range without downtime; scale-to-zero suspends idle compute and resumes in seconds.",
+            "Branches are instant, isolated copy-on-write copies; read replicas are read-only computes on the same storage."
+          ]
+        }
+      ],
+      "docsCheckedOn": "2026-10-14"
     },
-
     "first-project": {
       "objectives": [
         "Create a Lakebase project and understand what is auto-provisioned",
@@ -41,9 +56,9 @@
       ],
       "overview": [
         "Creating a **project** is the entry point to Lakebase. A new project automatically provisions a **production branch**, a default **`databricks_postgres`** database, and compute that scales to zero after an idle timeout (24 hours by default, configurable from 60 seconds to 7 days).",
-        "**Branches** are the superpower of the development workflow. They use **copy-on-write**, so a branch is created instantly with no data duplication \u2014 you only pay for the pages you change. A project supports up to **500 branches**, enabling per-developer or per-test isolated database copies without paying for full copies.",
+        "**Branches** are the superpower of the development workflow. They use **copy-on-write**, so a branch is created instantly with no data duplication — you only pay for the pages you change. A project supports up to **500 branches**, enabling per-developer or per-test isolated database copies without paying for full copies.",
         "Every connection to Lakebase **requires SSL/TLS** (`sslmode=require` at minimum). You can connect with the built-in SQL Editor, the Tables Editor, or any standard Postgres client such as `psql` using a short-lived OAuth credential.",
-        "Once connected you work with ordinary PostgreSQL \u2014 `CREATE TABLE`, `INSERT`, `SELECT` all behave exactly as you expect, because Lakebase is wire-compatible with Postgres."
+        "Once connected you work with ordinary PostgreSQL — `CREATE TABLE`, `INSERT`, `SELECT` all behave exactly as you expect, because Lakebase is wire-compatible with Postgres."
       ],
       "lab": {
         "title": "Create a project and your first table",
@@ -58,11 +73,25 @@
         ]
       },
       "docLinks": [
-        { "label": "Get started quickstart", "path": "/get-started/" },
-        { "label": "Connect with psql", "path": "/connect-psql/" }
-      ]
+        {
+          "label": "Get started quickstart",
+          "path": "/get-started/",
+          "summary": [
+            "A new project comes with a production branch, a databricks_postgres database and a compute.",
+            "Scale-to-zero is on by default with a 24-hour inactivity timeout, so the first connection after a pause can take a moment."
+          ]
+        },
+        {
+          "label": "Connect with psql",
+          "path": "/connect-psql/",
+          "summary": [
+            "Any standard Postgres client works (psql 14 or later, pgAdmin, DBeaver); all connections use TLS.",
+            "Databricks identities use OAuth tokens that expire after 1 hour; native Postgres roles use a password, which the page recommends for psql."
+          ]
+        }
+      ],
+      "docsCheckedOn": "2026-10-14"
     },
-
     "app-dev": {
       "objectives": [
         "Connect Lakebase to a Databricks App and understand automatic service-principal role creation",
@@ -71,9 +100,9 @@
         "Reason about connection strings, SSL, and authentication"
       ],
       "overview": [
-        "When you attach Lakebase as a resource to a **Databricks App**, the platform automatically creates a Postgres role for the app's **service principal** and grants it access \u2014 no manual credential management. This is the fastest path to a Lakebase-backed app.",
+        "When you attach Lakebase as a resource to a **Databricks App**, the platform automatically creates a Postgres role for the app's **service principal** and grants it access — no manual credential management. This is the fastest path to a Lakebase-backed app.",
         "The **Data API** exposes your tables over HTTP and is **compatible with the PostgREST** standard. Reads use GET; writes use **POST (insert), PATCH (update), or PUT (upsert)** depending on semantics. Requests are authenticated with a **Databricks OAuth bearer token** in the `Authorization` header.",
-        "The Data API runs queries through an **`authenticator` role** that assumes the caller's role. For security it cannot assume elevated-privilege accounts \u2014 which is why the **project owner cannot use the Data API** directly. You create dedicated, least-privilege roles instead.",
+        "The Data API runs queries through an **`authenticator` role** that assumes the caller's role. For security it cannot assume elevated-privilege accounts — which is why the **project owner cannot use the Data API** directly. You create dedicated, least-privilege roles instead.",
         "**External apps** (outside Databricks Apps) connect using the Databricks SDK plus OAuth to mint short-lived credentials, then open a standard Postgres connection. For an external service principal you create its Postgres role with the `databricks_auth` extension: `databricks_create_role('{client-id}', 'SERVICE_PRINCIPAL')`."
       ],
       "lab": {
@@ -88,23 +117,45 @@
         ]
       },
       "docLinks": [
-        { "label": "Databricks Apps", "path": "/databricks-apps/" },
-        { "label": "External apps", "path": "/external-apps-connect/" },
-        { "label": "Data API", "path": "/data-api/" }
-      ]
+        {
+          "label": "Databricks Apps",
+          "path": "/databricks-apps/",
+          "summary": [
+            "Each Databricks App gets a service principal, a matching Postgres role and injected connection variables, so there are no credentials to manage.",
+            "The app schema is named {app}_schema_{sp-id} and cannot be renamed; the first query after a pause can take a few seconds."
+          ]
+        },
+        {
+          "label": "External apps",
+          "path": "/external-apps-connect/",
+          "summary": [
+            "External apps authenticate with service-principal OAuth; both the workspace token and the database credential expire after 60 minutes.",
+            "Connection pools must call generate_database_credential() to refresh; create the Postgres OAuth role with the service principal client ID (case-sensitive)."
+          ]
+        },
+        {
+          "label": "Data API",
+          "path": "/data-api/",
+          "summary": [
+            "PostgREST-compatible REST interface for CRUD over HTTP, authenticated with Databricks OAuth bearer tokens.",
+            "Without row-level security, any authenticated user sees every row in the tables they can access; RLS is essential for multi-tenant apps.",
+            "JWT configuration, GUCs, pre-request functions and trace header propagation are not supported."
+          ]
+        }
+      ],
+      "docsCheckedOn": "2026-10-14"
     },
-
     "data-integration": {
       "objectives": [
-        "Explain synced tables and their direction (UC \u2192 Lakebase)",
-        "Explain Change Data Feed and its direction (Lakebase \u2192 Delta)",
+        "Explain synced tables and their direction (UC → Lakebase)",
+        "Explain Change Data Feed and its direction (Lakebase → Delta)",
         "Interpret CDF history tables, change-type columns, and flush cadence",
         "Predict CDF behavior when a source table is renamed"
       ],
       "overview": [
         "**Synced tables** perform reverse ETL: they continuously move data **from Unity Catalog Delta tables into Lakebase Postgres**, so an operational app can serve lakehouse-derived data at low latency without querying the warehouse at read time.",
         "**Change Data Feed (CDF)** goes the other direction: it captures row-level changes **from Lakebase Postgres into Unity Catalog Delta tables**, so transactional changes flow into the lakehouse for analytics and auditing. CDF flushes changes roughly every **15 seconds**.",
-        "The CDF destination follows the naming convention **`lb_{table_name}_history`**, and each row carries a **`_pg_change_type`** system column whose value is one of `insert`, `delete`, `update_preimage`, or `update_postimage`. An UPDATE therefore writes **two rows** \u2014 the pre-image and the post-image \u2014 so you can see both the old and new values.",
+        "The CDF destination follows the naming convention **`lb_{table_name}_history`**, and each row carries a **`_pg_change_type`** system column whose value is one of `insert`, `delete`, `update_preimage`, or `update_postimage`. An UPDATE therefore writes **two rows** — the pre-image and the post-image — so you can see both the old and new values.",
         "The feed is resilient to schema changes: if you rename a table in Postgres, the feed **continues** and the Delta history table keeps its original `lb_<original>_history` name."
       ],
       "lab": {
@@ -115,15 +166,31 @@
           "Query the synced table in Lakebase and confirm the rows match UC.",
           "Enable Change Data Feed on your playing_with_lakebase table.",
           "INSERT, UPDATE, and DELETE a few rows in Postgres.",
-          "After ~15 seconds, query the lb_playing_with_lakebase_history Delta table and inspect _pg_change_type \u2014 confirm the UPDATE produced update_preimage + update_postimage rows."
+          "After ~15 seconds, query the lb_playing_with_lakebase_history Delta table and inspect _pg_change_type — confirm the UPDATE produced update_preimage + update_postimage rows."
         ]
       },
       "docLinks": [
-        { "label": "Synced tables", "path": "/sync-tables/" },
-        { "label": "Lakebase CDF", "path": "/lakebase-cdf/" }
-      ]
+        {
+          "label": "Synced tables",
+          "path": "/sync-tables/",
+          "summary": [
+            "Synced tables serve Unity Catalog data through Postgres in Snapshot, Triggered or Continuous mode.",
+            "Each synced table can use up to 16 connections (1,000 per database); the page recommends keeping refreshed tables under 1 TB.",
+            "Only additive schema changes are supported; treat the synced tables as read-only in Postgres."
+          ]
+        },
+        {
+          "label": "Lakebase CDF",
+          "path": "/lakebase-cdf/",
+          "summary": [
+            "Every insert, update and delete is captured from the WAL into lb_<table>_history Delta tables, flushed about every 15 seconds.",
+            "Tables need REPLICA IDENTITY FULL; partitioned tables are not supported and empty tables are not synced until they have a row.",
+            "Do not add row filters or column masks to the history tables: CDF stops writing once they are applied."
+          ]
+        }
+      ],
+      "docsCheckedOn": "2026-10-14"
     },
-
     "performance": {
       "objectives": [
         "Distinguish autoscaling from scale-to-zero",
@@ -134,8 +201,8 @@
       "overview": [
         "**Autoscaling** adjusts the amount of *active* compute up and down with load, while **scale-to-zero** suspends compute **entirely** when the database is idle, so you pay nothing for compute during quiet periods. They are complementary, not the same thing.",
         "Reactivating from a suspended (scaled-to-zero) state takes only **a few hundred milliseconds**, so idle cost savings don't come at the price of a cold-start penalty your users would notice. Scale-to-zero supports compute up to **32 CU**.",
-        "**Read replicas** are created **instantly with no data copy** because they share the same storage layer \u2014 so they add **no additional storage cost**. A branch supports up to **6 read replicas**, letting you fan out read-heavy workloads.",
-        "One important gotcha: **HA endpoints cannot use scale-to-zero** \u2014 to pause an HA deployment you must do so manually, and the endpoint becomes unavailable while paused."
+        "**Read replicas** are created **instantly with no data copy** because they share the same storage layer — so they add **no additional storage cost**. A branch supports up to **6 read replicas**, letting you fan out read-heavy workloads.",
+        "One important gotcha: **HA endpoints cannot use scale-to-zero** — to pause an HA deployment you must do so manually, and the endpoint becomes unavailable while paused."
       ],
       "lab": {
         "title": "Tune scaling and add a replica",
@@ -149,11 +216,25 @@
         ]
       },
       "docLinks": [
-        { "label": "Use cases: app backend", "path": "/use-cases/" },
-        { "label": "Read replicas", "path": "/read-replicas/" }
-      ]
+        {
+          "label": "Use cases: app backend",
+          "path": "/use-cases/",
+          "summary": [
+            "As an application backend, Lakebase offers autoscaling, scale-to-zero, branches for dev/test isolation and token authentication.",
+            "It also serves lakehouse data with low-latency reads through synced tables."
+          ]
+        },
+        {
+          "label": "Read replicas",
+          "path": "/read-replicas/",
+          "summary": [
+            "Read replicas are independent read-only computes on the same storage, created instantly with no extra storage.",
+            "They are eventually consistent, with a maximum of 6 per branch; use them to scale reads and offload analytics."
+          ]
+        }
+      ],
+      "docsCheckedOn": "2026-10-14"
     },
-
     "ai-ml": {
       "objectives": [
         "Explain how Lakebase powers online feature stores",
@@ -164,8 +245,8 @@
       "overview": [
         "Databricks **Online Feature Stores** are powered by Lakebase (an autoscaling project), serving precomputed features to models at low latency for real-time inference.",
         "Lakebase is also the **agent memory** backend for frameworks including **LangGraph** and the **OpenAI Agents SDK**, giving agents durable, transactional state between turns.",
-        "**Lakebase Search** adds retrieval directly in the database via three extensions: **`lakebase_vector`** (ANN with an IVF + RaBitQ index that scales to 1B+ vectors and is 50\u2013100\u00d7 faster than HNSW), **`lakebase_text`** (BM25 full-text ranking with Block-Max WAND top-K pushdown), and **`lakebase_tokenizer`**. `lakebase_vector` is a **drop-in companion to pgvector** \u2014 same types, operators, and syntax.",
-        "For retrieval over mixed content \u2014 exact tokens like product codes alongside natural-language meaning \u2014 combine both signals with **hybrid search** (vector + keyword), which generally outperforms either alone."
+        "**Lakebase Search** adds retrieval directly in the database via three extensions: **`lakebase_vector`** (ANN with an IVF + RaBitQ index that scales to 1B+ vectors and is 50–100× faster than HNSW), **`lakebase_text`** (BM25 full-text ranking with Block-Max WAND top-K pushdown), and **`lakebase_tokenizer`**. `lakebase_vector` is a **drop-in companion to pgvector** — same types, operators, and syntax.",
+        "For retrieval over mixed content — exact tokens like product codes alongside natural-language meaning — combine both signals with **hybrid search** (vector + keyword), which generally outperforms either alone."
       ],
       "lab": {
         "title": "Vector + hybrid search in Postgres",
@@ -179,12 +260,33 @@
         ]
       },
       "docLinks": [
-        { "label": "Agents and ML use cases", "path": "/use-cases/" },
-        { "label": "Lakebase Search", "path": "/lakebase-search/" },
-        { "label": "Feature Store", "path": "/feature-store/" }
-      ]
+        {
+          "label": "Agents and ML use cases",
+          "path": "/use-cases/",
+          "summary": [
+            "Agents can store conversation state and long-term memory in Postgres.",
+            "Online Feature Stores are powered by Lakebase for real-time inference."
+          ]
+        },
+        {
+          "label": "Lakebase Search",
+          "path": "/lakebase-search/",
+          "summary": [
+            "Vector search, BM25 keyword search and hybrid search (Reciprocal Rank Fusion) via the lakebase_vector, lakebase_text and lakebase_tokenizer extensions.",
+            "Enabling Search restarts all computes in the project and cannot be undone; BM25 indexes must be built after the data is loaded."
+          ]
+        },
+        {
+          "label": "Feature Store",
+          "path": "/feature-store/",
+          "summary": [
+            "Online Feature Stores use a Lakebase project as the low-latency backend, synced from Unity Catalog in Triggered, Continuous or Snapshot mode.",
+            "update_online_store is not supported for Autoscaling projects created through the projects API or UI."
+          ]
+        }
+      ],
+      "docsCheckedOn": "2026-10-14"
     },
-
     "operations": {
       "objectives": [
         "Distinguish HA from DR by failure domain and trigger",
@@ -193,8 +295,8 @@
         "Apply branch workflows for safe operations"
       ],
       "overview": [
-        "**High Availability (HA)** protects against failures *within a region* \u2014 an availability zone or compute failure \u2014 and fails over **automatically** based on continuous health monitoring. **Disaster Recovery (DR)** protects against **regional** outages and is a **manual** failover (a business decision, because the secondary region may lag).",
-        "**Instant restore** creates a new branch from **any point in time within the history window**, so you can recover from a bad migration or accidental delete without a lengthy restore from backup \u2014 the branch is available immediately via copy-on-write.",
+        "**High Availability (HA)** protects against failures *within a region* — an availability zone or compute failure — and fails over **automatically** based on continuous health monitoring. **Disaster Recovery (DR)** protects against **regional** outages and is a **manual** failover (a business decision, because the secondary region may lag).",
+        "**Instant restore** creates a new branch from **any point in time within the history window**, so you can recover from a bad migration or accidental delete without a lengthy restore from backup — the branch is available immediately via copy-on-write.",
         "The maximum **history retention** window is **30 days**, which bounds how far back instant restore and point-in-time branching can reach.",
         "In day-to-day operations, branches give you cheap, isolated dev/test copies, and the monitoring dashboard plus OpenTelemetry export give you observability into performance and health."
       ],
@@ -210,12 +312,35 @@
         ]
       },
       "docLinks": [
-        { "label": "Manage branches", "path": "/manage-branches/" },
-        { "label": "Overview & HA", "path": "/index/" },
-        { "label": "Disaster recovery", "path": "/disaster-recovery/" }
-      ]
+        {
+          "label": "Manage branches",
+          "path": "/manage-branches/",
+          "summary": [
+            "Branches are copy-on-write; a reset overwrites the branch with the parent and interrupts connections.",
+            "Branch expiry is at most 30 days and an expiring branch is billed only for changed data; deleting a branch is permanent.",
+            "Point-in-time restore creates a new branch rather than resetting an existing one."
+          ]
+        },
+        {
+          "label": "Overview & HA",
+          "path": "/index/",
+          "summary": [
+            "Lakebase is a managed Postgres in the Databricks platform, with autoscaling, scale-to-zero, instant branching and point-in-time restore.",
+            "High availability fails over automatically across availability zones and keeps committed transactions."
+          ]
+        },
+        {
+          "label": "Disaster recovery",
+          "path": "/disaster-recovery/",
+          "summary": [
+            "Periodic cross-region replication to a secondary workspace; RPO is in the minutes range and failover is manual.",
+            "Unreplicated transactions are kept as recovery branches; synced tables and CDF pipelines stop on failover and need reconfiguring.",
+            "Private Preview only: not intended for production use yet."
+          ]
+        }
+      ],
+      "docsCheckedOn": "2026-10-14"
     },
-
     "security": {
       "objectives": [
         "Create OAuth-backed Postgres roles for users and service principals",
@@ -224,10 +349,10 @@
         "Choose IaC tooling for reproducible deployments"
       ],
       "overview": [
-        "Lakebase maps Databricks identities to Postgres roles via the **`databricks_auth`** extension. Create a role for a user with **`databricks_create_role(email, 'USER')`** and for a service principal with **`databricks_create_role('{client-id}', 'SERVICE_PRINCIPAL')`** \u2014 for service principals you use the **application ID (UUID)**, not the display name.",
-        "The Data API enforces access through Postgres privileges. If you expose a table **without row-level security**, Lakebase warns you that **all authenticated users can see ALL rows** \u2014 so RLS is the mechanism for per-tenant isolation in a multi-tenant app.",
+        "Lakebase maps Databricks identities to Postgres roles via the **`databricks_auth`** extension. Create a role for a user with **`databricks_create_role(email, 'USER')`** and for a service principal with **`databricks_create_role('{client-id}', 'SERVICE_PRINCIPAL')`** — for service principals you use the **application ID (UUID)**, not the display name.",
+        "The Data API enforces access through Postgres privileges. If you expose a table **without row-level security**, Lakebase warns you that **all authenticated users can see ALL rows** — so RLS is the mechanism for per-tenant isolation in a multi-tenant app.",
         "For the Data API, the `authenticator` role must be able to assume the target role: you grant it with **`GRANT \"user\" TO authenticator`** (and keep each role's privileges minimal).",
-        "Lakebase supports a full range of **Infrastructure as Code** tooling \u2014 the CLI, the Python/Java/Go SDKs, **Databricks Asset Bundles**, and **Terraform** \u2014 so projects, branches, and roles can be provisioned reproducibly for production."
+        "Lakebase supports a full range of **Infrastructure as Code** tooling — the CLI, the Python/Java/Go SDKs, **Databricks Asset Bundles**, and **Terraform** — so projects, branches, and roles can be provisioned reproducibly for production."
       ],
       "lab": {
         "title": "Lock down a multi-tenant table",
@@ -241,10 +366,33 @@
         ]
       },
       "docLinks": [
-        { "label": "Grant permissions programmatically", "path": "/grant-permissions-programmatically/" },
-        { "label": "Data API permissions", "path": "/data-api/" },
-        { "label": "API usage guide", "path": "/api-usage/" }
-      ]
+        {
+          "label": "Grant permissions programmatically",
+          "path": "/grant-permissions-programmatically/",
+          "summary": [
+            "Only CAN_USE and CAN_MANAGE can be granted; CAN_CREATE is inherited from the workspace.",
+            "PATCH is additive and cannot downgrade a permission; PUT replaces the whole ACL, removing anyone not listed."
+          ]
+        },
+        {
+          "label": "Data API permissions",
+          "path": "/data-api/",
+          "summary": [
+            "Create a Postgres role for each user or service principal with databricks_create_role(), then grant table privileges with SQL GRANT.",
+            "Add row-level security policies, or authenticated users can read every row of the tables they can access."
+          ]
+        },
+        {
+          "label": "API usage guide",
+          "path": "/api-usage/",
+          "summary": [
+            "The API lives under /api/2.0/postgres/ and uses workspace-level OAuth (tokens last one hour).",
+            "Create, update and delete are long-running operations: poll until done is true, and retry 409 conflicts with backoff.",
+            "Python, Java and Go SDKs, Terraform and bundles are supported."
+          ]
+        }
+      ],
+      "docsCheckedOn": "2026-10-14"
     }
   }
 }

@@ -117,7 +117,8 @@ export const appConfigSchema = z.object({
   questionTypes: z.record(z.string(), questionTypeSchema),
 });
 
-const docLinkSchema = z.object({ label: z.string(), path: z.string() });
+// `summary` is a short bullet digest of the linked page, written by hand and dated by the module's docsCheckedOn.
+const docLinkSchema = z.object({ label: z.string(), path: z.string(), summary: z.array(z.string()).default([]) });
 
 const moduleContentSchema = z.object({
   objectives: z.array(z.string()),
@@ -128,6 +129,7 @@ const moduleContentSchema = z.object({
     steps: z.array(z.string()),
   }),
   docLinks: z.array(docLinkSchema),
+  docsCheckedOn: z.string().optional(),
 });
 
 export const modulesContentSchema = z.object({

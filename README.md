@@ -56,7 +56,7 @@ Everything tunable is in files, not code. Edit, redeploy, done.
 | File | Controls |
 |---|---|
 | `config/app.config.json` | Branding, onboarding fields, scoring bands and pass threshold, modules and weights, AI endpoints and limits, **`lakebase`** (project, branch, database, endpoint, schema), **`deployment`** (app name, space, source path), **`program`** (admin emails, leaderboard, certificate rules, Lakehouse Sync target) |
-| `config/content/modules.json` | Per-module objectives, overview, lab steps, doc links |
+| `config/content/modules.json` | Per-module objectives, overview, lab steps, doc links with a hand-written bullet `summary` each, and `docsCheckedOn` (the date the pages were last read; update it when you re-check them) |
 | `config/content/questions.json` | Quiz bank (answers and explanations stay server-side) |
 | `config/content/knowledge.json` | Curated reference entries for the assistant; `kind: "gotcha"` entries also appear as common pitfalls |
 | `config/content/demo.json` | Demo walkthrough |

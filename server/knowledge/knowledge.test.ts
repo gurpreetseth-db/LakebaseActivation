@@ -27,6 +27,14 @@ function fakeDb(existing: { id: string; content_hash: string; has_vec: boolean }
 }
 
 describe('chunks', () => {
+  test('each module gets documentation-summary passages that cite its doc links', () => {
+    for (const meta of loadConfig().modules) {
+      const docs = chunks.filter((c) => c.id.startsWith(`docs:${meta.key}:`));
+      expect(docs.length, `no doc summary chunk for ${meta.key}`).toBeGreaterThan(0);
+      expect(docs[0].docs.length).toBeGreaterThan(0);
+    }
+  });
+
   test('ids are unique and every chunk has content', () => {
     const ids = chunks.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
