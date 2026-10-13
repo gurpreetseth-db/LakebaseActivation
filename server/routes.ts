@@ -11,8 +11,10 @@ import {
   type AppConfig,
 } from './content/loader.js';
 import { evaluateFit } from './content/fit.js';
+import { loadPublicFieldkit } from './content/fieldkit.js';
 import type { Repo } from './db/repo.js';
-import { buildAskPrompt, citationsFor } from './knowledge/rag.js';
+import { buildAskPrompt, citationsFor, docLinksFor } from './knowledge/rag.js';
+import { resolveDoc } from './knowledge/chunks.js';
 import type { Hit, SearchMode } from './knowledge/store.js';
 import { isAdmin, leaderboard, scoresByEmail, summarize, toCsv } from './program/admin.js';
 import { certificateEligibility, displayName } from './program/scoring.js';
@@ -153,9 +155,10 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
   // --- Single config (non-secret; safe to send to the browser) ---
   app.get('/api/config', (_req, res) => {
     // The admin allow-list is server-only.
-    const { program, ...rest } = loadConfig();
+    const { program, fieldkit, ...rest } = loadConfig();
     const { adminEmails: _admins, ...publicProgram } = program;
-    res.json({ ...rest, program: publicProgram });
+    // Deck id and held-slide reasons are internal; the browser only needs to know the tab exists.
+    res.json({ ...rest, program: publicProgram, fieldkit: { enabled: fieldkit.enabled } });
   });
 
   // --- Admin: cohort progress, weak topics, exports (allow-listed platform identity) ---
@@ -329,7 +332,11 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
           console.error(`[lakebase] could not log question: ${e.message}`);
         });
       }
-      res.json({ answer, citations, mode });
+      const links = docLinksFor(hits, {
+        label: 'Lakebase documentation',
+        url: resolveDoc(config.branding.docsBaseUrl, '/index/'),
+      });
+      res.json({ answer, citations, links, mode });
     } catch (err) {
       res.status(502).json({ error: `Could not answer: ${(err as Error).message}` });
     }
@@ -347,8 +354,24 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
     }
   });
 
+  app.get('/api/content/fieldkit', (_req, res) => {
+    if (!config.fieldkit.enabled) {
+      res.status(404).json({ error: 'Field Kit is disabled' });
+      return;
+    }
+    res.json(loadPublicFieldkit(config));
+  });
+
   app.get('/api/content/pitfalls', (_req, res) => {
-    res.json({ pitfalls: loadKnowledge().entries.filter((e) => e.kind === 'gotcha') });
+    const k = loadKnowledge();
+    res.json({
+      pitfalls: k.entries
+        .filter((e) => e.kind === 'gotcha')
+        .map((e) => ({
+          ...e,
+          docs: e.docs.map((p) => ({ label: k.docs[p] ?? p, url: resolveDoc(config.branding.docsBaseUrl, p) })),
+        })),
+    });
   });
   app.get('/api/content/pricing', (_req, res) => {
     res.json(loadPricing());

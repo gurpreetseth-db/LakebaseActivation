@@ -12,7 +12,7 @@ import {
   CardTitle,
   Input,
 } from '@databricks/appkit-ui/react';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, BookOpen, ExternalLink, Send } from 'lucide-react';
 import { useAppData } from '@/lib/AppData';
 import { askLakebase, fetchKnowledgeStatus, fetchPitfalls } from '@/lib/api';
 import { Markdown } from '@/lib/Markdown';
@@ -125,11 +125,44 @@ export function AskPage() {
                         <Markdown text={t.answer.answer} />
                         {t.answer.citations.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5 border-t pt-2">
+                            <span className="mr-1 text-xs text-muted-foreground">Sources</span>
                             {t.answer.citations.map((c) => (
                               <Badge key={c.n} variant="outline" title={c.source}>
                                 [{c.n}] {c.title}
                               </Badge>
                             ))}
+                          </div>
+                        ) : null}
+                        {t.answer.links.length > 0 ? (
+                          <div className="rounded-lg bg-accent/60 p-3">
+                            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-accent-foreground">
+                              <BookOpen className="h-3.5 w-3.5" />
+                              Read more in the documentation
+                            </p>
+                            <ul className="space-y-1">
+                              {t.answer.links.map((l) => (
+                                <li key={l.url}>
+                                  {l.url.startsWith('/') ? (
+                                    <Link
+                                      to={l.url}
+                                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline"
+                                    >
+                                      {l.label}
+                                    </Link>
+                                  ) : (
+                                    <a
+                                      href={l.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline"
+                                    >
+                                      {l.label}
+                                      <ExternalLink className="h-3 w-3" aria-hidden />
+                                    </a>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
                           </div>
                         ) : null}
                       </div>
@@ -176,6 +209,18 @@ export function AskPage() {
               <details key={p.id} className="rounded-md border p-3">
                 <summary className="cursor-pointer text-sm font-medium text-foreground">{p.title}</summary>
                 <p className="mt-2 text-sm text-muted-foreground">{p.content}</p>
+                {p.docs.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {p.docs.map((d) => (
+                      <a key={d.url} href={d.url} target="_blank" rel="noopener noreferrer">
+                        <Badge variant="outline" className="gap-1">
+                          {d.label}
+                          <ExternalLink className="h-3 w-3" aria-hidden />
+                        </Badge>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
               </details>
             ))}
           </CardContent>

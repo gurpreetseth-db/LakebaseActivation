@@ -16,6 +16,7 @@ import {
   CircleDollarSign,
   ClipboardCheck,
   Database,
+  Presentation,
   GraduationCap,
   LayoutDashboard,
   LogOut,
@@ -38,6 +39,7 @@ import { AdminPage } from '@/pages/AdminPage';
 import { CertificatePage } from '@/pages/CertificatePage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
 import { VerifyPage } from '@/pages/VerifyPage';
+import { FieldKitPage } from '@/pages/FieldKitPage';
 
 interface NavItem {
   to: string;
@@ -58,6 +60,7 @@ function NavLinks() {
   const items: NavItem[] = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
     { to: '/ask', label: 'Ask Lakebase', icon: BotMessageSquare },
+    ...(config.fieldkit.enabled ? [{ to: '/fieldkit', label: 'Field Kit', icon: Presentation }] : []),
     { to: '/demo', label: 'Demo', icon: PlayCircle },
     { to: '/fit', label: 'Fit-checker', icon: ClipboardCheck },
     { to: '/pricing', label: 'Pricing', icon: CircleDollarSign },
@@ -188,6 +191,8 @@ const router = createBrowserRouter([
       { path: '/', element: <Dashboard /> },
       { path: '/module/:moduleKey', element: <ModulePage /> },
       { path: '/ask', element: <AskPage /> },
+      { path: '/fieldkit', element: <FieldKitPage /> },
+      { path: '/fieldkit/:section', element: <FieldKitPage /> },
       { path: '/leaderboard', element: <LeaderboardPage /> },
       { path: '/certificate', element: <CertificatePage /> },
       { path: '/admin', element: <AdminPage /> },

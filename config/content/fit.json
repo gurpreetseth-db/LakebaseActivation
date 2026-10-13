@@ -35,8 +35,8 @@
       "prompt": "How large is the database?",
       "options": [
         { "key": "small", "label": "Under about 2 TB", "flag": "green", "note": "" },
-        { "key": "medium", "label": "2 TB to 8 TB", "flag": "yellow", "note": "Within limits, but plan capacity, backups and restore windows carefully." },
-        { "key": "large", "label": "More than 8 TB", "flag": "red", "note": "Exceeds the per-branch logical data limit; consider archiving cold data or partitioning by workload." }
+        { "key": "medium", "label": "2 TB to 16 TB", "flag": "yellow", "note": "Within limits, but plan capacity, backups and restore windows carefully." },
+        { "key": "large", "label": "More than 16 TB", "flag": "red", "note": "Exceeds the per-branch logical data limit; consider archiving cold data or partitioning by workload." }
       ]
     },
     {

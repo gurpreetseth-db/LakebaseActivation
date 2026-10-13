@@ -7,7 +7,7 @@ Source precedence used: (1) the `databricks-lakebase` agent skill for product fa
 | Topic | Skill | Blog | Deck | App says | Action for reviewer |
 |---|---|---|---|---|---|
 | Provisioned tier | Retired; Autoscaling only | Not mentioned | Still describes Provisioned (connection limit "1000 for Provisioned") | Autoscaling only | Confirm timing of the Provisioned migration before customer-facing claims |
-| Max data size | 8 TB logical per branch | "up to 8TB" (was 2 TB) | 16 TB | 8 TB | Confirm; the deck figure looks outdated |
+| Max data size | 8 TB logical per branch | "up to 8TB" (was 2 TB) | 16 TB | **16 TB** (program owner's decision, matching the deck) | The skill and the older blog say 8 TB. Confirm 16 TB against current public documentation before partners rely on it |
 | Max connections | 4,000 cap at 32 CU+ | Not stated | 4,000 | 4,000 | None |
 | Max autoscale compute | 32 CU, max-min spread ≤ 16 CU | Not stated | 32 CU | 32 CU, spread ≤ 16 | None |
 | Postgres versions | 16 and 17 (default 17) | 16 and 17 | 16, 17 and 18 | 16 and 17 | Confirm whether 18 is generally available |
@@ -17,6 +17,16 @@ Source precedence used: (1) the `databricks-lakebase` agent skill for product fa
 | Pricing | Not covered | Not covered | Per-second compute DBUs + monthly storage; promotions | Model only; links to the public pricing page; no rates stored | Rates were not readable (page renders them dynamically). Supply them only if you want an in-app estimator |
 | Billing query | Not covered | Not covered | `billing_origin_product = DATABASE` | Shown on Pricing page with a "verify column names" note | Verify against current billing system-table docs |
 | Identity sync to Postgres roles | Not covered | Not covered | Not auto-synced | Included as a pitfall | Confirm against current docs |
+
+## Field Kit slides shown to partners
+
+Cleared by the program owner: slides 4–22 and 29–40, with these held back by default (see `fieldkit.heldSlides`):
+
+- **Slide 4** — marked "Databricks internal only" on the slide; names individuals and internal channels.
+- **Slide 18** — unfinished qualification template containing internal SME instructions.
+
+Slide 17 is shown with a note on its "1000 for Lakebase Provisioned" connection figure, because Provisioned has been retired.
+Its 16 TB storage figure is used as-is and now matches the Fit-checker and Ask Lakebase.
 
 ## Known gaps
 

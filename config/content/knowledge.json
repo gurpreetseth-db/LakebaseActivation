@@ -1,25 +1,241 @@
 {
-  "$comment": "Curated knowledge base for the 'Ask Lakebase' assistant, embedded into pgvector at startup. kind=gotcha entries are also shown as common pitfalls. Keep facts consistent with current Lakebase documentation; see docs/content-conflicts.md for known source differences.",
+  "$comment": "Curated knowledge base for the 'Ask Lakebase' assistant, embedded into pgvector at startup. kind=gotcha entries are also shown as common pitfalls. Keep facts consistent with current Lakebase documentation; see docs/content-conflicts.md for known source differences. 'docs' maps a doc path (relative to branding.docsBaseUrl) or absolute URL to a link label; each entry lists the docs to show with answers that use it.",
+  "docs": {
+    "/index/": "Lakebase overview & high availability",
+    "/core-concepts/": "Core concepts",
+    "/architecture/": "Lakebase architecture",
+    "/get-started/": "Get started quickstart",
+    "/connect-psql/": "Connect with psql",
+    "/databricks-apps/": "Using Lakebase with Databricks Apps",
+    "/external-apps-connect/": "Connect an external app",
+    "/data-api/": "Data API",
+    "/api-usage/": "API usage guide",
+    "/sync-tables/": "Serve lakehouse data with synced tables",
+    "/lakebase-cdf/": "Lakebase change data feed",
+    "/use-cases/": "Use cases",
+    "/read-replicas/": "Read replicas",
+    "/lakebase-search/": "Lakebase Search",
+    "/feature-store/": "Feature Store and Model Serving",
+    "/manage-branches/": "Manage branches",
+    "/disaster-recovery/": "Disaster recovery",
+    "/grant-permissions-programmatically/": "Grant permissions programmatically",
+    "/extensions/": "Postgres extensions",
+    "https://www.databricks.com/product/pricing/lakebase": "Lakebase pricing (official)"
+  },
   "entries": [
-    { "id": "autoscaling-only", "kind": "fact", "module": "fundamentals", "title": "Lakebase is Autoscaling-only", "content": "Lakebase today is the Autoscaling tier, managed with the `databricks postgres` CLI group. The older Provisioned tier no longer exists for new work and is being migrated to Autoscaling. Older configs that use the `database` app-resource key should move to the `postgres` resource key." },
-    { "id": "resource-hierarchy", "kind": "fact", "module": "fundamentals", "title": "Project, branch, endpoint, database, role", "content": "A project is the top-level container. Creating one provisions a `production` branch and a primary read-write endpoint. A branch is an isolated copy-on-write database environment. An endpoint (called Compute in the UI) powers a branch and is read-write or read-only. A branch holds Postgres databases (default `databricks_postgres`) and roles. Resource names look like `projects/{project}/branches/{branch}/endpoints/{endpoint}`." },
-    { "id": "compute-sizing", "kind": "fact", "module": "performance", "title": "Compute units and connection limits", "content": "Each compute unit (CU) is about 2 GB of RAM. Autoscaling ranges from 0.5 to 32 CU, and the gap between the maximum and minimum must not exceed 16 CU, so 4-20 CU is valid but 0.5-32 CU is not. Fixed-size compute runs 36 to 112 CU. Max connections follow the maximum CU: roughly 104 at 0.5 CU, 209 at 1 CU, 839 at 4 CU, 1,678 at 8 CU, 3,357 at 16 CU and a 4,000 cap at 32 CU and above." },
-    { "id": "scale-to-zero", "kind": "fact", "module": "performance", "title": "Scale to zero", "content": "Idle compute suspends automatically. The default timeout is 5 minutes and the minimum is 60 seconds. A suspended compute wakes in a fraction of a second, so clients should still retry the first connection after a long idle period. You pay for compute only while it is active." },
-    { "id": "branch-limits", "kind": "fact", "module": "operations", "title": "Branch expiry and limits", "content": "Every branch needs an expiration policy: no expiry, or a time to live up to 30 days. A project can have 10 unarchived branches, and a branch can hold up to 8 TB of logical data. Typical TTLs: CI environments 2-4 hours, demos 1-2 days, feature work 1-7 days. Never delete the production branch." },
-    { "id": "branch-reset", "kind": "gotcha", "module": "operations", "title": "Resetting a branch is a console action", "content": "Reset from parent is available only in the Lakebase console (Branches page, branch menu). There is no CLI command or API for it. To get the same result with the CLI, delete the branch and create it again from the parent, or create a point-in-time branch. Root branches, branches with children and protected branches cannot be reset." },
-    { "id": "pitr", "kind": "fact", "module": "operations", "title": "Point-in-time recovery and restore validation", "content": "You can create a branch from a past point within the restore window using `spec.source_branch_time` or `spec.source_branch_lsn`. Restoring onto a zero-copy branch lets you validate the recovered data before you promote anything. Timestamp-based reset of an existing branch is not supported." },
-    { "id": "auth-tokens", "kind": "gotcha", "module": "security", "title": "OAuth tokens expire after one hour", "content": "OAuth database credentials last one hour and must be refreshed, so long-running apps need a pool that renews tokens (the AppKit lakebase plugin and the @databricks/lakebase package do this). Native Postgres passwords do not expire. Always connect with sslmode=require. Connections idle for 24 hours are closed, and lifetimes beyond 24 hours are not guaranteed, so implement reconnection." },
-    { "id": "schema-ownership", "kind": "gotcha", "module": "app-dev", "title": "Deploy first so the app owns its schema", "content": "A Databricks App's service principal gets CAN_CONNECT_AND_CREATE: it can create objects but cannot access schemas it did not create. Deploy the app before running it locally so the service principal creates and owns the schema. If you ran locally first and see `permission denied for schema` (42501), the schema is owned by your user; export the data, drop the schema and redeploy. Always create a dedicated schema instead of using public." },
-    { "id": "apps-resource", "kind": "fact", "module": "app-dev", "title": "Attaching Lakebase to a Databricks App", "content": "Bind a `postgres` app resource with the branch and database resource paths and CAN_CONNECT_AND_CREATE permission. The platform then injects PGHOST, PGPORT, PGDATABASE, PGUSER and PGSSLMODE, and `LAKEBASE_ENDPOINT` comes from `valueFrom: postgres` in app.yaml. Use `databricks apps create-update` with update_mask=resources, which replaces the whole resource list, so merge with the existing resources first. Apps placed in a restricted space may not be allowed to declare resources." },
-    { "id": "synced-tables", "kind": "fact", "module": "data-integration", "title": "Synced tables: Delta to Postgres", "content": "Synced tables copy a Unity Catalog Delta table into Lakebase for low-latency app reads. Modes: Snapshot (one-time full copy), Triggered (scheduled, needs change data feed) and Continuous (seconds of latency, needs change data feed). Throughput is roughly 150 rows per second per CU for triggered and continuous, and about 2,000 rows per second per CU for snapshot. Each synced table can use up to 16 connections. The Postgres copy is read-only; only reads, indexes and dropping the table are allowed." },
-    { "id": "synced-gotchas", "kind": "gotcha", "module": "data-integration", "title": "Synced table failures to watch for", "content": "Enable change data feed on the source with `ALTER TABLE ... SET TBLPROPERTIES (delta.enableChangeDataFeed = true)` for triggered and continuous sync. Null bytes (0x00) in string, array, map or struct columns break the sync, so sanitise them at the source. The pipeline's storage catalog must be a regular Unity Catalog catalog, not the Lakebase catalog. Grant the app's service principal USAGE on the schema and SELECT on the tables after the sync is online." },
-    { "id": "lakehouse-sync", "kind": "fact", "module": "data-integration", "title": "Lakehouse Sync: Postgres to Delta", "content": "Lakehouse Sync streams changes from Lakebase into Unity Catalog with change data capture. Each synced table gets an `lb_<table>_history` Delta table that keeps every insert, update and delete as an SCD Type 2 history with columns such as _pg_change_type, _pg_lsn and _timestamp. It is configured per Postgres schema and needs no extra pipelines or jobs. It is in Beta and programmable through the `databricks postgres *-cdf-config` commands." },
-    { "id": "data-api", "kind": "fact", "module": "app-dev", "title": "Data API", "content": "The Data API exposes Postgres tables as a PostgREST-compatible HTTP API with create, read, update and delete operations, OAuth authentication and Postgres permissions including row-level security. It is available for Autoscaling projects." },
-    { "id": "pgvector", "kind": "fact", "module": "ai-ml", "title": "Vector search with pgvector", "content": "Run `CREATE EXTENSION IF NOT EXISTS vector` and store embeddings in a `vector(N)` column where N matches the embedding model, for example 1024 for databricks-gte-large-en. Query with cosine distance (`<=>`) and add an HNSW or IVFFlat index when tables grow. If creating the extension returns error 42501 it usually already exists." },
-    { "id": "olap-not-fit", "kind": "gotcha", "module": "fundamentals", "title": "What Lakebase is not for", "content": "Lakebase is an OLTP database. Do not use it for large-scale OLAP, for more than 4,000 concurrent connections, or for more than 8 TB in a branch. Do not split data across branches or projects to get around limits. Migrations from non-Postgres databases need extra assessment and a phased plan." },
-    { "id": "tuning-limits", "kind": "gotcha", "module": "performance", "title": "Limited server tuning", "content": "Lakebase does not expose server-level Postgres tuning such as autovacuum, work_mem, shared_buffers or connection pooling configuration. Extensions that manipulate Postgres storage directly are not supported. Postgres 16 and 17 are supported, with 17 as the default." },
-    { "id": "high-availability", "kind": "fact", "module": "operations", "title": "High availability and read replicas", "content": "A branch can have one read-write endpoint plus read-only endpoints. High availability adds one to three secondaries with automatic failover. Read-only compute scales reads independently of writes while sharing the same storage, so replicas do not duplicate data." },
-    { "id": "roles-identity", "kind": "gotcha", "module": "security", "title": "Databricks identities are not automatically Postgres roles", "content": "Databricks identities and group memberships are not synced into Postgres roles automatically. Create roles and grants explicitly in the database, or use workspace OAuth identities with Postgres permissions you manage. Plan row-level security and grants as part of the schema." },
-    { "id": "billing-meters", "kind": "fact", "module": "operations", "title": "How Lakebase is billed", "content": "Billing has two meters: compute, measured in DBUs and billed per second only while the compute is active, and storage, billed monthly by volume. Idle databases that scale to zero stop accruing compute charges. Usage appears in the billing system tables, and rates depend on cloud and region; always use the public pricing page for current numbers." }
+    {
+      "id": "autoscaling-only",
+      "kind": "fact",
+      "module": "fundamentals",
+      "title": "Lakebase is Autoscaling-only",
+      "content": "Lakebase today is the Autoscaling tier, managed with the `databricks postgres` CLI group. The older Provisioned tier no longer exists for new work and is being migrated to Autoscaling. Older configs that use the `database` app-resource key should move to the `postgres` resource key.",
+      "docs": [
+        "/index/",
+        "/core-concepts/"
+      ]
+    },
+    {
+      "id": "resource-hierarchy",
+      "kind": "fact",
+      "module": "fundamentals",
+      "title": "Project, branch, endpoint, database, role",
+      "content": "A project is the top-level container. Creating one provisions a `production` branch and a primary read-write endpoint. A branch is an isolated copy-on-write database environment. An endpoint (called Compute in the UI) powers a branch and is read-write or read-only. A branch holds Postgres databases (default `databricks_postgres`) and roles. Resource names look like `projects/{project}/branches/{branch}/endpoints/{endpoint}`.",
+      "docs": [
+        "/core-concepts/",
+        "/architecture/"
+      ]
+    },
+    {
+      "id": "compute-sizing",
+      "kind": "fact",
+      "module": "performance",
+      "title": "Compute units and connection limits",
+      "content": "Each compute unit (CU) is about 2 GB of RAM. Autoscaling ranges from 0.5 to 32 CU, and the gap between the maximum and minimum must not exceed 16 CU, so 4-20 CU is valid but 0.5-32 CU is not. Fixed-size compute runs 36 to 112 CU. Max connections follow the maximum CU: roughly 104 at 0.5 CU, 209 at 1 CU, 839 at 4 CU, 1,678 at 8 CU, 3,357 at 16 CU and a 4,000 cap at 32 CU and above.",
+      "docs": [
+        "/index/",
+        "/read-replicas/"
+      ]
+    },
+    {
+      "id": "scale-to-zero",
+      "kind": "fact",
+      "module": "performance",
+      "title": "Scale to zero",
+      "content": "Idle compute suspends automatically. The default timeout is 5 minutes and the minimum is 60 seconds. A suspended compute wakes in a fraction of a second, so clients should still retry the first connection after a long idle period. You pay for compute only while it is active.",
+      "docs": [
+        "/architecture/",
+        "/index/"
+      ]
+    },
+    {
+      "id": "branch-limits",
+      "kind": "fact",
+      "module": "operations",
+      "title": "Branch expiry and limits",
+      "content": "Every branch needs an expiration policy: no expiry, or a time to live up to 30 days. A project can have 10 unarchived branches, and a branch can hold up to 16 TB of logical data. Typical TTLs: CI environments 2-4 hours, demos 1-2 days, feature work 1-7 days. Never delete the production branch.",
+      "docs": [
+        "/manage-branches/"
+      ]
+    },
+    {
+      "id": "branch-reset",
+      "kind": "gotcha",
+      "module": "operations",
+      "title": "Resetting a branch is a console action",
+      "content": "Reset from parent is available only in the Lakebase console (Branches page, branch menu). There is no CLI command or API for it. To get the same result with the CLI, delete the branch and create it again from the parent, or create a point-in-time branch. Root branches, branches with children and protected branches cannot be reset.",
+      "docs": [
+        "/manage-branches/"
+      ]
+    },
+    {
+      "id": "pitr",
+      "kind": "fact",
+      "module": "operations",
+      "title": "Point-in-time recovery and restore validation",
+      "content": "You can create a branch from a past point within the restore window using `spec.source_branch_time` or `spec.source_branch_lsn`. Restoring onto a zero-copy branch lets you validate the recovered data before you promote anything. Timestamp-based reset of an existing branch is not supported.",
+      "docs": [
+        "/manage-branches/",
+        "/disaster-recovery/"
+      ]
+    },
+    {
+      "id": "auth-tokens",
+      "kind": "gotcha",
+      "module": "security",
+      "title": "OAuth tokens expire after one hour",
+      "content": "OAuth database credentials last one hour and must be refreshed, so long-running apps need a pool that renews tokens (the AppKit lakebase plugin and the @databricks/lakebase package do this). Native Postgres passwords do not expire. Always connect with sslmode=require. Connections idle for 24 hours are closed, and lifetimes beyond 24 hours are not guaranteed, so implement reconnection.",
+      "docs": [
+        "/connect-psql/",
+        "/external-apps-connect/"
+      ]
+    },
+    {
+      "id": "schema-ownership",
+      "kind": "gotcha",
+      "module": "app-dev",
+      "title": "Deploy first so the app owns its schema",
+      "content": "A Databricks App's service principal gets CAN_CONNECT_AND_CREATE: it can create objects but cannot access schemas it did not create. Deploy the app before running it locally so the service principal creates and owns the schema. If you ran locally first and see `permission denied for schema` (42501), the schema is owned by your user; export the data, drop the schema and redeploy. Always create a dedicated schema instead of using public.",
+      "docs": [
+        "/databricks-apps/",
+        "/grant-permissions-programmatically/"
+      ]
+    },
+    {
+      "id": "apps-resource",
+      "kind": "fact",
+      "module": "app-dev",
+      "title": "Attaching Lakebase to a Databricks App",
+      "content": "Bind a `postgres` app resource with the branch and database resource paths and CAN_CONNECT_AND_CREATE permission. The platform then injects PGHOST, PGPORT, PGDATABASE, PGUSER and PGSSLMODE, and `LAKEBASE_ENDPOINT` comes from `valueFrom: postgres` in app.yaml. Use `databricks apps create-update` with update_mask=resources, which replaces the whole resource list, so merge with the existing resources first. Apps placed in a restricted space may not be allowed to declare resources.",
+      "docs": [
+        "/databricks-apps/"
+      ]
+    },
+    {
+      "id": "synced-tables",
+      "kind": "fact",
+      "module": "data-integration",
+      "title": "Synced tables: Delta to Postgres",
+      "content": "Synced tables copy a Unity Catalog Delta table into Lakebase for low-latency app reads. Modes: Snapshot (one-time full copy), Triggered (scheduled, needs change data feed) and Continuous (seconds of latency, needs change data feed). Throughput is roughly 150 rows per second per CU for triggered and continuous, and about 2,000 rows per second per CU for snapshot. Each synced table can use up to 16 connections. The Postgres copy is read-only; only reads, indexes and dropping the table are allowed.",
+      "docs": [
+        "/sync-tables/"
+      ]
+    },
+    {
+      "id": "synced-gotchas",
+      "kind": "gotcha",
+      "module": "data-integration",
+      "title": "Synced table failures to watch for",
+      "content": "Enable change data feed on the source with `ALTER TABLE ... SET TBLPROPERTIES (delta.enableChangeDataFeed = true)` for triggered and continuous sync. Null bytes (0x00) in string, array, map or struct columns break the sync, so sanitise them at the source. The pipeline's storage catalog must be a regular Unity Catalog catalog, not the Lakebase catalog. Grant the app's service principal USAGE on the schema and SELECT on the tables after the sync is online.",
+      "docs": [
+        "/sync-tables/"
+      ]
+    },
+    {
+      "id": "lakehouse-sync",
+      "kind": "fact",
+      "module": "data-integration",
+      "title": "Lakehouse Sync: Postgres to Delta",
+      "content": "Lakehouse Sync streams changes from Lakebase into Unity Catalog with change data capture. Each synced table gets an `lb_<table>_history` Delta table that keeps every insert, update and delete as an SCD Type 2 history with columns such as _pg_change_type, _pg_lsn and _timestamp. It is configured per Postgres schema and needs no extra pipelines or jobs. It is in Beta and programmable through the `databricks postgres *-cdf-config` commands.",
+      "docs": [
+        "/lakebase-cdf/"
+      ]
+    },
+    {
+      "id": "data-api",
+      "kind": "fact",
+      "module": "app-dev",
+      "title": "Data API",
+      "content": "The Data API exposes Postgres tables as a PostgREST-compatible HTTP API with create, read, update and delete operations, OAuth authentication and Postgres permissions including row-level security. It is available for Autoscaling projects.",
+      "docs": [
+        "/data-api/",
+        "/api-usage/"
+      ]
+    },
+    {
+      "id": "pgvector",
+      "kind": "fact",
+      "module": "ai-ml",
+      "title": "Vector search with pgvector",
+      "content": "Run `CREATE EXTENSION IF NOT EXISTS vector` and store embeddings in a `vector(N)` column where N matches the embedding model, for example 1024 for databricks-gte-large-en. Query with cosine distance (`<=>`) and add an HNSW or IVFFlat index when tables grow. If creating the extension returns error 42501 it usually already exists.",
+      "docs": [
+        "/extensions/",
+        "/lakebase-search/"
+      ]
+    },
+    {
+      "id": "olap-not-fit",
+      "kind": "gotcha",
+      "module": "fundamentals",
+      "title": "What Lakebase is not for",
+      "content": "Lakebase is an OLTP database. Do not use it for large-scale OLAP, for more than 4,000 concurrent connections, or for more than 16 TB in a branch. Do not split data across branches or projects to get around limits. Migrations from non-Postgres databases need extra assessment and a phased plan.",
+      "docs": [
+        "/use-cases/",
+        "/index/"
+      ]
+    },
+    {
+      "id": "tuning-limits",
+      "kind": "gotcha",
+      "module": "performance",
+      "title": "Limited server tuning",
+      "content": "Lakebase does not expose server-level Postgres tuning such as autovacuum, work_mem, shared_buffers or connection pooling configuration. Extensions that manipulate Postgres storage directly are not supported. Postgres 16 and 17 are supported, with 17 as the default.",
+      "docs": [
+        "/extensions/",
+        "/architecture/"
+      ]
+    },
+    {
+      "id": "high-availability",
+      "kind": "fact",
+      "module": "operations",
+      "title": "High availability and read replicas",
+      "content": "A branch can have one read-write endpoint plus read-only endpoints. High availability adds one to three secondaries with automatic failover. Read-only compute scales reads independently of writes while sharing the same storage, so replicas do not duplicate data.",
+      "docs": [
+        "/index/",
+        "/read-replicas/",
+        "/disaster-recovery/"
+      ]
+    },
+    {
+      "id": "roles-identity",
+      "kind": "gotcha",
+      "module": "security",
+      "title": "Databricks identities are not automatically Postgres roles",
+      "content": "Databricks identities and group memberships are not synced into Postgres roles automatically. Create roles and grants explicitly in the database, or use workspace OAuth identities with Postgres permissions you manage. Plan row-level security and grants as part of the schema.",
+      "docs": [
+        "/grant-permissions-programmatically/",
+        "/data-api/"
+      ]
+    },
+    {
+      "id": "billing-meters",
+      "kind": "fact",
+      "module": "operations",
+      "title": "How Lakebase is billed",
+      "content": "Billing has two meters: compute, measured in DBUs and billed per second only while the compute is active, and storage, billed monthly by volume. Idle databases that scale to zero stop accruing compute charges. Usage appears in the billing system tables, and rates depend on cloud and region; always use the public pricing page for current numbers.",
+      "docs": [
+        "https://www.databricks.com/product/pricing/lakebase"
+      ]
+    }
   ]
 }

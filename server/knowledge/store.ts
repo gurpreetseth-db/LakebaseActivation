@@ -4,7 +4,7 @@
  * full-text search so the assistant still works if embedding is unavailable.
  */
 import { assertIdentifier, type Queryable } from '../db/schema.js';
-import type { Chunk } from './chunks.js';
+import type { Chunk, DocRef } from './chunks.js';
 import type { Embedder } from './embed.js';
 
 export interface Hit {
@@ -13,6 +13,8 @@ export interface Hit {
   title: string;
   content: string;
   score: number;
+  /** Filled in by the server from the in-memory corpus; not stored in Postgres. */
+  docs?: DocRef[];
 }
 
 export type SearchMode = 'vector' | 'keyword';

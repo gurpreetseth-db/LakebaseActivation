@@ -88,6 +88,17 @@ await check('demo, fit and pricing content load', async () => {
     must(r.status === 200, `${p} -> ${r.status}`);
   }
 });
+await check('Field Kit serves cleared slides only', async () => {
+  const r = await http('GET', '/api/content/fieldkit');
+  must(r.status === 200, `HTTP ${r.status}`);
+  const held = Object.keys(config.fieldkit.heldSlides).map(Number);
+  const nums = r.json.sections.flatMap((s) => s.slides.map((x) => x.n));
+  must(!nums.some((n) => held.includes(n)), `held slide served: ${nums.filter((n) => held.includes(n))}`);
+  must(!r.text.includes(config.fieldkit.deckId), 'deck id leaked to the browser');
+  const probe = await http('GET', r.json.sections[0].slides[0].image);
+  must(probe.status === 200, `slide images not deployed yet (HTTP ${probe.status}) — run scripts/sync-fieldkit.mjs`);
+  return `${nums.length} slides`;
+});
 await check('certificate verification rejects bad ids', async () => {
   const r = await http('GET', '/api/certificate/verify/not-a-uuid');
   must(r.status === 404, `HTTP ${r.status}`);

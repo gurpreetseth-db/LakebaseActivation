@@ -88,6 +88,24 @@ describe('public content and config', () => {
     expect(r.text).not.toContain(ADMIN);
     expect(r.json.program.adminEmails).toBeUndefined();
     expect(r.json.program.certificate.enabled).toBeDefined();
+    // Internal Field Kit details stay server-side.
+    expect(r.text).not.toContain(config.fieldkit.deckId);
+    expect(r.json.fieldkit).toEqual({ enabled: config.fieldkit.enabled });
+    for (const reason of Object.values(config.fieldkit.heldSlides)) expect(r.text).not.toContain(reason);
+  });
+
+  test('Field Kit is served with approved slides only and no internal details', async () => {
+    const r = await t.call('GET', '/api/content/fieldkit');
+    expect(r.status).toBe(200);
+    const sections = r.json.sections as { slides: { n: number }[] }[];
+    const nums = sections.flatMap((s) => s.slides.map((x) => x.n));
+    expect(nums.length).toBeGreaterThan(0);
+    for (const held of Object.keys(config.fieldkit.heldSlides)) expect(nums).not.toContain(Number(held));
+    expect(r.text).not.toContain(config.fieldkit.deckId);
+    expect(r.text).not.toContain('expectTitle');
+    expect(r.json.sections[0].slides[0].image).toBe(`/${config.fieldkit.imageDir}/slide-${String(r.json.sections[0].slides[0].n).padStart(2, '0')}.png`);
+    // Must not share a name with the /fieldkit page route, or static serving would shadow it.
+    expect(config.fieldkit.imageDir).not.toBe('fieldkit');
   });
 
   test('questions are served without answers or explanations', async () => {
@@ -300,6 +318,38 @@ describe('AI routes', () => {
     expect(prompt).toContain('Question: How does scale to zero work?');
     expect(prompt).toContain('[1] T');
     expect(repo.logAsk).toHaveBeenCalledOnce();
+    await t.close();
+  });
+
+  test('answers include documentation links from the retrieved passages, or the docs home', async () => {
+    const hit = (docs: { label: string; url: string }[]) => ({ id: 'k', source: 'S', title: 'T', content: 'C', score: 1, docs });
+    const withDocs = await start({
+      knowledge: {
+        ready: () => true,
+        vector: () => true,
+        stats: () => Promise.resolve({ total: 1, embedded: 1 }),
+        retrieve: () =>
+          Promise.resolve({ mode: 'vector' as const, hits: [hit([{ label: 'Synced tables', url: 'https://docs.databricks.com/aws/en/oltp/projects/sync-tables/' }])] }),
+      },
+    });
+    const r = await withDocs.call('POST', '/api/ask', { question: 'How do synced tables work?' });
+    expect(r.json.links).toEqual([{ label: 'Synced tables', url: 'https://docs.databricks.com/aws/en/oltp/projects/sync-tables/' }]);
+    await withDocs.close();
+
+    const none = await start();
+    const f = await none.call('POST', '/api/ask', { question: 'Something with no linked docs' });
+    expect(f.json.links).toEqual([{ label: 'Lakebase documentation', url: `${config.branding.docsBaseUrl}/index/` }]);
+    await none.close();
+  });
+
+  test('pitfalls come with resolved documentation links', async () => {
+    const t = await start();
+    const r = await t.call('GET', '/api/content/pitfalls');
+    expect(r.json.pitfalls.length).toBeGreaterThan(0);
+    for (const p of r.json.pitfalls) {
+      expect(p.docs.length).toBeGreaterThan(0);
+      expect(p.docs[0].url).toMatch(/^https:\/\//);
+    }
     await t.close();
   });
 

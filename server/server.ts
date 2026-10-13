@@ -5,6 +5,7 @@ import { createRepo, type Repo } from './db/repo.js';
 import { buildChunks } from './knowledge/chunks.js';
 import { createEmbedder, type Embedder } from './knowledge/embed.js';
 import { ensureKnowledgeSchema, search, stats, syncChunks } from './knowledge/store.js';
+import { loadPublicFieldkit } from './content/fieldkit.js';
 import { registerRoutes } from './routes.js';
 
 // Load config once at startup. Bridge the AI endpoint name from the single
@@ -43,6 +44,15 @@ await createApp({
     }
 
     // --- Knowledge base (pgvector). Built in the background so startup never waits on embeddings. ---
+    const corpus = buildChunks({
+      config,
+      modules: loadModules(),
+      questions: loadQuestions(),
+      fit: loadFit(),
+      demo: loadDemo(),
+      knowledge: loadKnowledge(),
+      fieldkit: config.fieldkit.enabled ? loadPublicFieldkit(config) : undefined,
+    });
     let embedder: Embedder | null = null;
     let vectorEnabled = false;
     let knowledgeReady = false;
@@ -55,19 +65,14 @@ await createApp({
       const db = appkit.lakebase;
       void (async () => {
         vectorEnabled = await ensureKnowledgeSchema(db, config.lakebase.schema, config.ai.embeddingDimensions);
-        const chunks = buildChunks({
-          config,
-          modules: loadModules(),
-          questions: loadQuestions(),
-          fit: loadFit(),
-          demo: loadDemo(),
-          knowledge: loadKnowledge(),
-        });
-        const result = await syncChunks(db, config.lakebase.schema, chunks, embedder, vectorEnabled);
+        const result = await syncChunks(db, config.lakebase.schema, corpus, embedder, vectorEnabled);
         knowledgeReady = true;
         console.log(`[knowledge] ready: ${JSON.stringify({ ...result, vectorEnabled })}`);
       })().catch((err: Error) => console.error(`[knowledge] sync failed: ${err.message}`));
     }
+
+    // Docs are looked up from the in-memory corpus by chunk id (they are not stored in Postgres).
+    const docsById = new Map(corpus.map((c) => [c.id, c.docs]));
 
     appkit.server.extend((app) => {
       registerRoutes(app, {
@@ -89,7 +94,8 @@ await createApp({
                 qv = null;
               }
             }
-            return search(appkit.lakebase, config.lakebase.schema, query, qv, k);
+            const found = await search(appkit.lakebase, config.lakebase.schema, query, qv, k);
+            return { ...found, hits: found.hits.map((h) => ({ ...h, docs: docsById.get(h.id) ?? [] })) };
           },
         },
         invokeLlm: (req, body) => appkit.serving().asUser(req as never).invoke(body as never),

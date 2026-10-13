@@ -57,6 +57,18 @@ const lakebaseSchema = z.object({
 
 export const appConfigSchema = z.object({
   lakebase: lakebaseSchema,
+  fieldkit: z.object({
+    enabled: z.boolean(),
+    deckTitle: z.string(),
+    edition: z.string(),
+    /** Server-only: never sent to the browser. */
+    deckId: z.string(),
+    /** Slide numbers cleared for partners, e.g. "4-22,29-40". */
+    approvedSlides: z.string().regex(/^\d+(-\d+)?(,\d+(-\d+)?)*$/, 'use numbers and ranges like "4-22,29-40"'),
+    /** Server-only: slides inside the approved ranges that are withheld, with the reason. */
+    heldSlides: z.record(z.string().regex(/^\d+$/), z.string()),
+    imageDir: z.string().regex(/^[a-z0-9_-]+$/i),
+  }),
   program: z.object({
     adminEmails: z.array(z.string().email()),
     leaderboard: z.object({ enabled: z.boolean(), topN: z.number().int().min(1).max(100) }),
@@ -136,6 +148,27 @@ const questionSchema = z.object({
 
 export const questionsSchema = z.object({ questions: z.array(questionSchema) });
 
+export const fieldkitContentSchema = z.object({
+  sections: z.array(
+    z.object({
+      key: z.string(),
+      title: z.string(),
+      summary: z.string(),
+      takeaways: z.array(z.string()),
+      modules: z.array(z.string()),
+      slides: z.array(
+        z.object({
+          n: z.number().int().positive(),
+          title: z.string(),
+          expectTitle: z.string(),
+          text: z.string(),
+          note: z.string().optional(),
+        }),
+      ),
+    }),
+  ),
+});
+
 const demoSchema = z.object({
   title: z.string(),
   intro: z.string(),
@@ -147,6 +180,8 @@ const demoSchema = z.object({
 });
 
 const knowledgeSchema = z.object({
+  /** doc path (relative to branding.docsBaseUrl) or absolute URL -> link label */
+  docs: z.record(z.string(), z.string()),
   entries: z.array(
     z.object({
       id: z.string(),
@@ -154,6 +189,7 @@ const knowledgeSchema = z.object({
       module: z.string(),
       title: z.string(),
       content: z.string(),
+      docs: z.array(z.string()).default([]),
     }),
   ),
 });
@@ -190,6 +226,7 @@ export const fitSchema = z.object({
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
 export type DemoContent = z.infer<typeof demoSchema>;
+export type FieldkitContent = z.infer<typeof fieldkitContentSchema>;
 export type FitContent = z.infer<typeof fitSchema>;
 export type KnowledgeContent = z.infer<typeof knowledgeSchema>;
 export type PricingContent = z.infer<typeof pricingSchema>;
@@ -236,6 +273,13 @@ export function loadKnowledge(): KnowledgeContent {
 export function loadPricing(): PricingContent {
   if (!pricingCache) pricingCache = readAndParse('content/pricing.json', pricingSchema);
   return pricingCache;
+}
+
+let fieldkitCache: FieldkitContent | null = null;
+
+export function loadFieldkitRaw(): FieldkitContent {
+  if (!fieldkitCache) fieldkitCache = readAndParse('content/fieldkit.json', fieldkitContentSchema);
+  return fieldkitCache;
 }
 
 export function loadDemo(): DemoContent {
