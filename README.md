@@ -20,7 +20,7 @@ thing they are using.
 | **Fit-checker** (`/fit`) | Eight-question qualification tool: blockers (red), risks (yellow), verdict |
 | **Pricing** (`/pricing`) | The billing model and a link to the official pricing page (no rates are copied) |
 | **Leaderboard** (`/leaderboard`) | Opt-in only; shows first name, last initial and organization |
-| **Certificate** (`/certificate`) | Eligibility is decided on the server from saved scores; printable; publicly verifiable at `/verify/<id>` |
+| **Certificate** (`/certificate`) | Off by default (`program.certificate.enabled`). When on: eligibility is decided on the server from saved scores; printable; publicly verifiable at `/verify/<id>` |
 | **Lakebase** (`/lakebase`) | Live connection status, target project/branch/database/schema, latency |
 | **Admin** (`/admin`) | Allow-listed admins only: cohort totals, per-module averages and pass rates, hardest questions, recent assistant questions, CSV export |
 
@@ -78,13 +78,66 @@ The platform-injected `LAKEBASE_ENDPOINT` (from the `postgres` app resource) alw
 - Permission to create apps **outside a restricted space** — apps in a space that allows no resource types cannot
   attach the `postgres` resource
 
-## Deploy
+## Deploy to your own workspace
+
+Two things decide where the app lands, and they are set in different places:
+
+| What | Where you set it | Notes |
+|---|---|---|
+| **Databricks workspace** | The CLI profile you pass as `--profile` | The host and credentials come from `~/.databrickscfg`, never from the repo |
+| **Lakebase instance** | `lakebase.*` in `config/app.config.json` | Project, branch, database and schema |
+| **App name, space, upload path** | `deployment.*` in `config/app.config.json` | Empty `space` = no space; empty `sourcePath` = `/Workspace/Users/<you>/apps/<appName>` |
+
+### 1. Point the CLI at the target workspace
+
+```bash
+databricks auth login --host https://<your-workspace>.cloud.databricks.com --profile <PROFILE>
+databricks current-user me --profile <PROFILE>        # confirm it is the right workspace and user
+```
+
+### 2. Find your Lakebase resource names
+
+The project must already exist in that workspace. List the names the config needs:
+
+```bash
+databricks postgres list-projects --profile <PROFILE>
+databricks postgres list-branches projects/<project> --profile <PROFILE>
+databricks postgres list-databases projects/<project>/branches/<branch> --profile <PROFILE>
+```
+
+Put them in `config/app.config.json`. All four values must belong to the same project and branch (a test checks this):
+
+```json
+"lakebase": {
+  "enabled": true,
+  "project":  "projects/<project>",
+  "branch":   "projects/<project>/branches/<branch>",
+  "database": "projects/<project>/branches/<branch>/databases/<database>",
+  "endpoint": "projects/<project>/branches/<branch>/endpoints/<endpoint>",
+  "schema":   "partner_activation"
+},
+"deployment": { "appName": "<your-app-name>", "space": "", "sourcePath": "" },
+"program":    { "adminEmails": ["you@yourcompany.com"] }
+```
+
+`schema` is created for you on first start (lowercase letters, digits and underscores only). `adminEmails` decides who
+sees the Admin tab. Other settings (branding, modules, scoring, AI endpoints) are optional and described under
+[Configuration](#configuration). Set `"lakebase": { "enabled": false }` to run without a database: progress then
+stays in the browser.
+
+### 3. Deploy
 
 ```bash
 npm install
-node scripts/deploy.mjs --profile <PROFILE> --dry-run   # show the plan
+node scripts/deploy.mjs --profile <PROFILE> --dry-run   # print the plan, change nothing
 node scripts/deploy.mjs --profile <PROFILE>             # create → bind → sync → deploy
+node scripts/smoke-test.mjs --profile <PROFILE>         # check the result
 ```
+
+Each step is safe to re-run, so redeploying after a config or content change is the same command. Useful flags:
+`--skip-create` (app already exists), `--no-prune` (do not delete stale workspace files).
+
+### What the deploy script does
 
 `scripts/deploy.mjs` reads `deployment.*` and `lakebase.*` from the config and:
 
