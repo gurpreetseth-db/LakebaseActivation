@@ -126,12 +126,12 @@ the app in a space, add `space: <name>` to `resources.apps.lakebase_partner_hub`
 
 ```bash
 databricks bundle run smoke_test -t default -p <PROFILE>               # read-only checks
-databricks bundle run smoke_test -t default -p <PROFILE> -- --write    # also signs up a throw-away partner
+databricks bundle run smoke_test -t default -p <PROFILE> --var smoke_write=true   # also signs up a throw-away partner
 ```
 
 Checks: app running, `postgres` bound, config hides the admin list, answers not exposed, Lakebase connected,
 knowledge base indexed (and whether search is semantic or keyword), content endpoints, Field Kit serves cleared slides
-only, certificate verification rejects bad ids, admin endpoints protected. `--write` creates
+only, certificate verification rejects bad ids, admin endpoints protected. `smoke_write=true` creates
 `smoke-test@example.invalid`, grades a quiz, and clears its progress; the partner row itself remains and counts in admin
 totals.
 
@@ -142,7 +142,7 @@ Streams the app's Postgres schema into Unity Catalog as `lb_<table>_history` Del
 
 ```bash
 databricks bundle run enable_lakehouse_sync -t default -p <PROFILE>              # print the plan only
-databricks bundle run enable_lakehouse_sync -t default -p <PROFILE> -- --apply   # create the CDF config
+databricks bundle run enable_lakehouse_sync -t default -p <PROFILE> --var lakehouse_sync_apply=true   # create the CDF config
 ```
 
 The CDF config is immutable and replicates **every** table, including partner names and emails, so review who can

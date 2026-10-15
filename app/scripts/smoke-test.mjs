@@ -4,7 +4,7 @@
  * auth and the deployment settings (APP_NAME, LAKEBASE_SCHEMA) from databricks.yml variables:
  *
  *   databricks bundle run smoke_test -t <TARGET> -p <PROFILE>
- *   databricks bundle run smoke_test -t <TARGET> -p <PROFILE> -- --write   # also signs up a throw-away
+ *   databricks bundle run smoke_test -t <TARGET> -p <PROFILE> --var smoke_write=true   # also signs up a throw-away
  *                                                                partner, grades a quiz, then clears its progress
  *
  * Exit code is non-zero if any check fails, so it can gate a release.
@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
-const write = args.includes('--write');
+const write = process.env.SMOKE_WRITE === 'true';
 const cli = (...a) => execFileSync('databricks', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 const need = (n) => process.env[n] ?? (console.error(`${n} is not set: run this through \`databricks bundle run smoke_test\``), process.exit(2));
 const appName = need('APP_NAME');
