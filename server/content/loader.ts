@@ -1,6 +1,8 @@
 /**
  * Loads and validates the externally-editable content files:
- *   - config/app.config.json      (single source of truth for all tunables)
+ *   - config/app.config.json      (content tunables: branding, scoring, modules, Field Kit)
+ *   - environment                 (deployment tunables: Lakebase target, admins, AI endpoints;
+ *                                  set from the `variables:` block of databricks.yml, see deploymentEnvSchema)
  *   - config/content/modules.json (per-module learning collateral)
  *   - config/content/questions.json (the editable Q&A bank)
  *
@@ -55,8 +57,7 @@ const lakebaseSchema = z.object({
   schema: z.string().regex(/^[a-z_][a-z0-9_]{0,62}$/, 'must be a lowercase Postgres identifier'),
 });
 
-export const appConfigSchema = z.object({
-  lakebase: lakebaseSchema,
+const fileConfigSchema = z.object({
   fieldkit: z.object({
     enabled: z.boolean(),
     deckTitle: z.string(),
@@ -70,7 +71,6 @@ export const appConfigSchema = z.object({
     pdfFile: z.string().regex(/^[a-z0-9_.-]+\.pdf$/i),
   }),
   program: z.object({
-    adminEmails: z.array(z.string().email()),
     leaderboard: z.object({ enabled: z.boolean(), topN: z.number().int().min(1).max(100) }),
     certificate: z.object({
       enabled: z.boolean(),
@@ -79,13 +79,6 @@ export const appConfigSchema = z.object({
       issuer: z.string(),
       signatory: z.string(),
     }),
-    lakehouseSync: z.object({ catalog: z.string(), schema: z.string(), cdfConfigId: z.string() }),
-  }),
-  deployment: z.object({
-    appName: z.string().regex(/^[a-z][a-z0-9-]{1,29}$/),
-    description: z.string(),
-    space: z.string(),
-    sourcePath: z.string(),
   }),
   branding: z.object({
     appName: z.string(),
@@ -106,8 +99,6 @@ export const appConfigSchema = z.object({
   }),
   ai: z.object({
     enabled: z.boolean(),
-    endpointName: z.string(),
-    embeddingEndpoint: z.string(),
     embeddingDimensions: z.number().int().min(8).max(4096),
     retrievalTopK: z.number().int().min(1).max(20),
     maxTokens: z.number(),
@@ -226,7 +217,58 @@ export const fitSchema = z.object({
   }),
 });
 
-export type AppConfig = z.infer<typeof appConfigSchema>;
+/**
+ * Deployment settings. These are NOT in app.config.json: databricks.yml `variables:` is their single
+ * source, and the bundle exports them to the app as these environment variables
+ * (resources.apps.*.config.env). Local dev and tests set them via .env / vitest.config.ts.
+ */
+const envBool = z.enum(['true', 'false']).transform((v) => v === 'true');
+const deploymentEnvSchema = z.object({
+  LAKEBASE_ENABLED: envBool,
+  LAKEBASE_PROJECT: z.string().min(1),
+  LAKEBASE_BRANCH: z.string().min(1),
+  LAKEBASE_DATABASE: z.string().min(1),
+  LAKEBASE_ENDPOINT: z.string().min(1),
+  LAKEBASE_SCHEMA: lakebaseSchema.shape.schema,
+  ADMIN_EMAILS: z.string().transform((v) => v.split(',').map((e) => e.trim()).filter(Boolean)).pipe(z.array(z.string().email())),
+  AI_ENDPOINT_NAME: z.string().min(1),
+  AI_EMBEDDING_ENDPOINT: z.string().min(1),
+});
+
+type FileConfig = z.infer<typeof fileConfigSchema>;
+export type AppConfig = Omit<FileConfig, 'program' | 'ai'> & {
+  lakebase: z.infer<typeof lakebaseSchema>;
+  program: FileConfig['program'] & {
+    adminEmails: string[];
+  };
+  ai: FileConfig['ai'] & { endpointName: string; embeddingEndpoint: string };
+};
+
+function mergeDeployment(file: FileConfig): AppConfig {
+  const parsed = deploymentEnvSchema.safeParse(process.env);
+  if (!parsed.success) {
+    throw new Error(
+      `Deployment settings missing or invalid in the environment (set from databricks.yml variables): ${parsed.error.message}`,
+    );
+  }
+  const e = parsed.data;
+  return {
+    ...file,
+    lakebase: {
+      enabled: e.LAKEBASE_ENABLED,
+      project: e.LAKEBASE_PROJECT,
+      branch: e.LAKEBASE_BRANCH,
+      database: e.LAKEBASE_DATABASE,
+      endpoint: e.LAKEBASE_ENDPOINT,
+      schema: e.LAKEBASE_SCHEMA,
+    },
+    program: {
+      ...file.program,
+      adminEmails: e.ADMIN_EMAILS,
+    },
+    ai: { ...file.ai, endpointName: e.AI_ENDPOINT_NAME, embeddingEndpoint: e.AI_EMBEDDING_ENDPOINT },
+  };
+}
 export type DemoContent = z.infer<typeof demoSchema>;
 export type FieldkitContent = z.infer<typeof fieldkitContentSchema>;
 export type FitContent = z.infer<typeof fitSchema>;
@@ -295,7 +337,7 @@ export function loadFit(): FitContent {
 }
 
 export function loadConfig(): AppConfig {
-  if (!configCache) configCache = readAndParse('app.config.json', appConfigSchema);
+  if (!configCache) configCache = mergeDeployment(readAndParse('app.config.json', fileConfigSchema));
   return configCache;
 }
 

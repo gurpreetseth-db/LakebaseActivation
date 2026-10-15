@@ -1,39 +1,78 @@
 # =============================================================================
 # Databricks Asset Bundle: Lakebase Partner Readiness app
 # =============================================================================
-#   databricks bundle validate -t default -p <PROFILE>
-#   databricks bundle deploy   -t default -p <PROFILE>   # create app, bind resources, upload source
-#   databricks bundle run lakebase_partner_hub -t default -p <PROFILE>   # start + deploy the app
+# THIS FILE IS THE SINGLE SOURCE OF TRUTH FOR EVERY DEPLOYMENT SETTING.
+# Edit the `variables:` defaults below (or override per target / per run with
+# `--var name=value`); everything else is parameterised from them:
+#   - the app resource, its postgres + serving-endpoint bindings
+#   - the runtime env the app reads (resources.apps.*.config.env -> server/content/loader.ts)
+#   - the post-deploy scripts (smoke_test, enable_lakehouse_sync)
+# Content (branding, modules, scoring, quiz, Field Kit) stays in config/*.json.
 #
 # The workspace comes from the CLI profile (-p), never from this file.
 #
-# Keep the `lakebase_*` variables and `app_name` in step with `lakebase.*` and
-# `deployment.appName` in config/app.config.json: the app reads that file at
-# runtime, the bundle uses these variables to bind the postgres resource.
-# Override per deploy, e.g. `--var lakebase_project=my-project`.
+#   databricks bundle validate --strict -t default -p <PROFILE>
+#   databricks bundle deploy   -t default -p <PROFILE>                  # create app, bind resources, upload source
+#   databricks bundle run lakebase_partner_hub -t default -p <PROFILE>  # start the app and deploy the source
+#   databricks bundle run smoke_test           -t default -p <PROFILE>  # verify (add `-- --write` for write checks)
+#   databricks bundle destroy  -t default -p <PROFILE>                  # remove the app
 #
 # Deploy BEFORE running locally: the app's service principal must create the
 # schema so it owns it (otherwise `permission denied for schema`, 42501).
+# To place the app in a space, add `space: <name>` under resources.apps.lakebase_partner_hub.
 # =============================================================================
 bundle:
   name: lakebase-partner-hub
 
 variables:
+  # ---- App ------------------------------------------------------------------
   app_name:
-    description: "Databricks App name (lowercase, hyphenated, unique per workspace). Mirrors deployment.appName."
+    description: "Databricks App name (lowercase, hyphenated, <= 30 chars, unique per workspace)."
     default: lakebase-partner-hub
+  app_description:
+    default: "Guided Lakebase enablement for partners"
+
+  # ---- Lakebase (autoscaling) target ----------------------------------------
+  lakebase_enabled:
+    description: "false = run without a database; progress then stays in the browser."
+    default: "true"
   lakebase_project:
-    description: "Lakebase (autoscaling) project id. Mirrors lakebase.project."
+    description: "Lakebase project id."
     default: agentic-memory
   lakebase_branch:
-    description: "Lakebase branch id inside the project."
+    description: "Branch id inside the project."
     default: production
   lakebase_database:
     description: "Database resource id (final path segment, NOT necessarily the Postgres datname). Resolve with `databricks postgres list-databases projects/<project>/branches/<branch> -o json`."
     default: databricks-postgres
-  embedding_endpoint:
-    description: "Serving endpoint the app queries to embed the knowledge base. Mirrors ai.embeddingEndpoint."
+  lakebase_endpoint:
+    description: "Endpoint id inside the branch (local development only; deployed apps get it from the postgres resource)."
+    default: primary
+  lakebase_schema:
+    description: "Postgres schema the app owns (lowercase letters, digits, underscores). Created on first start."
+    default: partner_activation
+
+  # ---- Program ----------------------------------------------------------------
+  admin_emails:
+    description: "Comma-separated emails that see the Admin tab (matched against x-forwarded-email, never sent to the browser)."
+    default: gurpreet.sethi@databricks.com
+
+  # ---- AI ---------------------------------------------------------------------
+  ai_endpoint_name:
+    description: "Chat/LLM serving endpoint for the assistant."
+    default: databricks-meta-llama-3-3-70b-instruct
+  ai_embedding_endpoint:
+    description: "Embedding serving endpoint (the app is granted CAN_QUERY on it). Without it the assistant uses keyword search."
     default: databricks-gte-large-en
+
+  # ---- Lakehouse Sync (optional, Beta; used only by `bundle run enable_lakehouse_sync`, not by the app) ----
+  lakehouse_sync_catalog:
+    description: "Unity Catalog catalog to stream the Postgres schema into. Empty = feature unused."
+    default: ""
+  lakehouse_sync_schema:
+    default: ""
+  lakehouse_sync_cdf_config_id:
+    default: partner-activation-sync
 
 sync:
   exclude:
@@ -45,20 +84,56 @@ resources:
   apps:
     lakebase_partner_hub:
       name: ${var.app_name}
-      description: "Guided Lakebase enablement for partners"
+      description: ${var.app_description}
       source_code_path: .
+      config:
+        command: ['npm', 'run', 'start']
+        env:
+          # Injected by the platform from the `postgres` resource below.
+          - name: LAKEBASE_ENDPOINT
+            value_from: postgres
+          - name: LAKEBASE_ENABLED
+            value: ${var.lakebase_enabled}
+          - name: LAKEBASE_PROJECT
+            value: projects/${var.lakebase_project}
+          - name: LAKEBASE_BRANCH
+            value: projects/${var.lakebase_project}/branches/${var.lakebase_branch}
+          - name: LAKEBASE_DATABASE
+            value: projects/${var.lakebase_project}/branches/${var.lakebase_branch}/databases/${var.lakebase_database}
+          - name: LAKEBASE_SCHEMA
+            value: ${var.lakebase_schema}
+          - name: ADMIN_EMAILS
+            value: ${var.admin_emails}
+          - name: AI_ENDPOINT_NAME
+            value: ${var.ai_endpoint_name}
+          - name: AI_EMBEDDING_ENDPOINT
+            value: ${var.ai_embedding_endpoint}
       resources:
-        # Name must stay `postgres`: app.yaml reads LAKEBASE_ENDPOINT via valueFrom: postgres.
+        # Name must stay `postgres`: config.env reads LAKEBASE_ENDPOINT via value_from: postgres.
         - name: postgres
           postgres:
             branch: projects/${var.lakebase_project}/branches/${var.lakebase_branch}
             database: projects/${var.lakebase_project}/branches/${var.lakebase_branch}/databases/${var.lakebase_database}
             permission: CAN_CONNECT_AND_CREATE
-        # Optional in practice: without it the assistant falls back to keyword search.
         - name: embedding-endpoint
           serving_endpoint:
-            name: ${var.embedding_endpoint}
+            name: ${var.ai_embedding_endpoint}
             permission: CAN_QUERY
+
+scripts:
+  smoke_test:
+    content: node scripts/smoke-test.mjs
+    env:
+      APP_NAME: ${var.app_name}
+      LAKEBASE_SCHEMA: ${var.lakebase_schema}
+  enable_lakehouse_sync:
+    content: node scripts/enable-lakehouse-sync.mjs
+    env:
+      LAKEBASE_DATABASE: projects/${var.lakebase_project}/branches/${var.lakebase_branch}/databases/${var.lakebase_database}
+      LAKEBASE_SCHEMA: ${var.lakebase_schema}
+      LAKEHOUSE_SYNC_CATALOG: ${var.lakehouse_sync_catalog}
+      LAKEHOUSE_SYNC_SCHEMA: ${var.lakehouse_sync_schema}
+      LAKEHOUSE_SYNC_CDF_CONFIG_ID: ${var.lakehouse_sync_cdf_config_id}
 
 targets:
   default:

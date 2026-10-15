@@ -1,24 +1,7 @@
 {
-  "$comment": "SINGLE SOURCE OF TRUTH. Every tunable value lives here; code references these variables only. Edit this file (and config/content/*.json) and republish the app to change branding, modules, scoring, the AI endpoint, or the Lakebase target (project/branch/database/schema). deployment.* drives scripts/deploy.mjs (empty space = no space; empty sourcePath = your workspace home). fieldkit.heldSlides is server-only. program.adminEmails is matched against the platform-injected x-forwarded-email (never sent to the browser). Secrets are NOT configured here \u2014 they come from app.yaml / platform env. The platform-injected LAKEBASE_ENDPOINT always wins over lakebase.endpoint.",
-
-  "lakebase": {
-    "enabled": true,
-    "project": "projects/agentic-memory",
-    "branch": "projects/agentic-memory/branches/production",
-    "database": "projects/agentic-memory/branches/production/databases/databricks-postgres",
-    "endpoint": "projects/agentic-memory/branches/production/endpoints/primary",
-    "schema": "partner_activation"
-  },
-
-  "deployment": {
-    "appName": "lakebase-partner-hub",
-    "description": "Guided Lakebase enablement for partners",
-    "space": "",
-    "sourcePath": ""
-  },
+  "$comment": "CONTENT config: branding, onboarding, scoring, modules, Field Kit, AI limits. DEPLOYMENT settings (Lakebase target, app name, admin emails, AI endpoints, Lakehouse Sync target) are NOT here: they are the `variables:` in databricks.yml, exported to the app as environment variables. fieldkit.heldSlides is server-only. Secrets are never configured here.",
 
   "program": {
-    "adminEmails": ["gurpreet.sethi@databricks.com"],
     "leaderboard": { "enabled": true, "topN": 20 },
     "certificate": {
       "enabled": false,
@@ -26,8 +9,7 @@
       "title": "Certificate of Lakebase Readiness",
       "issuer": "Databricks Partner Enablement",
       "signatory": "Lakebase Partner Program"
-    },
-    "lakehouseSync": { "catalog": "", "schema": "", "cdfConfigId": "partner-activation-sync" }
+    }
   },
 
   "fieldkit": {
@@ -76,8 +58,6 @@
 
   "ai": {
     "enabled": true,
-    "endpointName": "databricks-meta-llama-3-3-70b-instruct",
-    "embeddingEndpoint": "databricks-gte-large-en",
     "embeddingDimensions": 1024,
     "retrievalTopK": 5,
     "maxTokens": 1200,

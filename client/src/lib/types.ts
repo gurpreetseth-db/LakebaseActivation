@@ -21,7 +21,6 @@ export interface AppConfig {
   program: {
     leaderboard: { enabled: boolean; topN: number };
     certificate: { enabled: boolean; requireAllModules: boolean; title: string; issuer: string; signatory: string };
-    lakehouseSync: { catalog: string; schema: string; cdfConfigId: string };
   };
   branding: { appName: string; shortName: string; tagline: string; org: string; docsBaseUrl: string };
   onboarding: {

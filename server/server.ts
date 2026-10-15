@@ -8,21 +8,11 @@ import { ensureKnowledgeSchema, search, stats, syncChunks } from './knowledge/st
 import { loadPublicFieldkit } from './content/fieldkit.js';
 import { registerRoutes } from './routes.js';
 
-// Load config once at startup. Bridge the AI endpoint name from the single
-// config file into the env var the serving plugin reads, UNLESS the platform
-// already set it (app.yaml / platform env always wins). This keeps the endpoint
-// name a config-file variable while still allowing an ops override.
+// Load config once at startup: content from config/app.config.json, deployment settings from the
+// environment (exported by the bundle from the databricks.yml variables). The serving plugin reads
+// its endpoint from DATABRICKS_SERVING_ENDPOINT_NAME, so bridge the configured name into it.
 const config = loadConfig();
-if (!process.env.DATABRICKS_SERVING_ENDPOINT_NAME && config.ai.endpointName) {
-  process.env.DATABRICKS_SERVING_ENDPOINT_NAME = config.ai.endpointName;
-}
-
-// Same bridge for Lakebase: the platform-injected LAKEBASE_ENDPOINT (app.yaml
-// valueFrom: postgres) wins; otherwise fall back to the config-file value so
-// local development needs no extra env setup.
-if (!process.env.LAKEBASE_ENDPOINT && config.lakebase.endpoint) {
-  process.env.LAKEBASE_ENDPOINT = config.lakebase.endpoint;
-}
+process.env.DATABRICKS_SERVING_ENDPOINT_NAME = config.ai.endpointName;
 
 await createApp({
   plugins: [server(), serving(), ...(config.lakebase.enabled ? [lakebase()] : [])],
@@ -30,7 +20,7 @@ await createApp({
     // Lakebase persistence is best-effort: if the database is unreachable the
     // app keeps working in browser-local mode and /api/lakebase/status says why.
     let repo: Repo | null = null;
-    let dbError = config.lakebase.enabled ? 'Not initialised' : 'Disabled in app.config.json';
+    let dbError = config.lakebase.enabled ? 'Not initialised' : 'Disabled (lakebase_enabled=false in databricks.yml)';
     if (config.lakebase.enabled) {
       try {
         const db = appkit.lakebase;

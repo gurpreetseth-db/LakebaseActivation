@@ -55,7 +55,8 @@ Everything tunable is in files, not code. Edit, redeploy, done.
 
 | File | Controls |
 |---|---|
-| `config/app.config.json` | Branding, onboarding fields, scoring bands and pass threshold, modules and weights, AI endpoints and limits, **`lakebase`** (project, branch, database, endpoint, schema), **`deployment`** (app name, space, source path), **`program`** (admin emails, leaderboard, certificate rules, Lakehouse Sync target) |
+| `databricks.yml` `variables:` | **Every deployment setting**: app name, Lakebase target, admin emails, AI endpoints, Lakehouse Sync target (see [Deploy](#deploy-to-your-own-workspace)) |
+| `config/app.config.json` | Branding, onboarding fields, scoring bands and pass threshold, modules and weights, AI limits (tokens, temperature, top-k), leaderboard and certificate rules, Field Kit |
 | `config/content/modules.json` | Per-module objectives, overview, lab steps, doc links with a hand-written bullet `summary` each, and `docsCheckedOn` (the date the pages were last read; update it when you re-check them) |
 | `config/content/questions.json` | Quiz bank (answers and explanations stay server-side) |
 | `config/content/knowledge.json` | Curated reference entries for the assistant; `kind: "gotcha"` entries also appear as common pitfalls |
@@ -73,20 +74,27 @@ The platform-injected `LAKEBASE_ENDPOINT` (from the `postgres` app resource) alw
 ## Prerequisites
 
 - Node.js 22+ and npm
-- Databricks CLI ≥ 0.294 with a profile for the target workspace
-- An existing Lakebase (Autoscaling) project; its resource names go in `config/app.config.json`
+- Databricks CLI ≥ 0.294 (bundle `scripts:` need a recent release; 1.17 verified) with a profile for the target workspace
+- An existing Lakebase (Autoscaling) project; its ids go in the `lakebase_*` variables in `databricks.yml`
 - Permission to create apps **outside a restricted space** — apps in a space that allows no resource types cannot
   attach the `postgres` resource
 
 ## Deploy to your own workspace
 
-Two things decide where the app lands, and they are set in different places:
+Deployment is **Databricks Asset Bundles only**. `databricks.yml` is the single source of truth for every deployment
+setting; the app resource, its Lakebase and serving-endpoint bindings, the app's runtime environment and the
+post-deploy scripts are all derived from its `variables:` block. Nothing is configured anywhere else.
 
-| What | Where you set it | Notes |
-|---|---|---|
-| **Databricks workspace** | The CLI profile you pass as `--profile` | The host and credentials come from `~/.databrickscfg`, never from the repo |
-| **Lakebase instance** | `lakebase.*` in `config/app.config.json` | Project, branch, database and schema |
-| **App name, space, upload path** | `deployment.*` in `config/app.config.json` | Empty `space` = no space; empty `sourcePath` = `/Workspace/Users/<you>/apps/<appName>` |
+| What | Variable in `databricks.yml` |
+|---|---|
+| App name, description | `app_name`, `app_description` |
+| Lakebase target | `lakebase_enabled`, `lakebase_project`, `lakebase_branch`, `lakebase_database`, `lakebase_endpoint`, `lakebase_schema` |
+| Who sees the Admin tab | `admin_emails` (comma-separated) |
+| AI endpoints | `ai_endpoint_name`, `ai_embedding_endpoint` |
+| Lakehouse Sync (optional) | `lakehouse_sync_catalog`, `lakehouse_sync_schema`, `lakehouse_sync_cdf_config_id` |
+| **Workspace** | The CLI profile you pass as `-p`; the host and credentials never live in the repo |
+
+Content (branding, modules, scoring, quiz, Field Kit) stays in `config/*.json` and is not a deployment setting.
 
 ### 1. Point the CLI at the target workspace
 
@@ -95,9 +103,9 @@ databricks auth login --host https://<your-workspace>.cloud.databricks.com --pro
 databricks current-user me --profile <PROFILE>        # confirm it is the right workspace and user
 ```
 
-### 2. Find your Lakebase resource names
+### 2. Find your Lakebase resource ids
 
-The project must already exist in that workspace. List the names the config needs:
+The project must already exist in that workspace:
 
 ```bash
 databricks postgres list-projects --profile <PROFILE>
@@ -105,75 +113,40 @@ databricks postgres list-branches projects/<project> --profile <PROFILE>
 databricks postgres list-databases projects/<project>/branches/<branch> --profile <PROFILE>
 ```
 
-Put them in `config/app.config.json`. All four values must belong to the same project and branch (a test checks this):
-
-```json
-"lakebase": {
-  "enabled": true,
-  "project":  "projects/<project>",
-  "branch":   "projects/<project>/branches/<branch>",
-  "database": "projects/<project>/branches/<branch>/databases/<database>",
-  "endpoint": "projects/<project>/branches/<branch>/endpoints/<endpoint>",
-  "schema":   "partner_activation"
-},
-"deployment": { "appName": "<your-app-name>", "space": "", "sourcePath": "" },
-"program":    { "adminEmails": ["you@yourcompany.com"] }
-```
-
-`schema` is created for you on first start (lowercase letters, digits and underscores only). `adminEmails` decides who
-sees the Admin tab. Other settings (branding, modules, scoring, AI endpoints) are optional and described under
-[Configuration](#configuration). Set `"lakebase": { "enabled": false }` to run without a database: progress then
-stays in the browser.
+Set the **ids** (not the full paths; the bundle composes `projects/<project>/branches/<branch>/...`) as variable
+defaults in `databricks.yml`, or per target / per run. `lakebase_schema` is created on first start (lowercase letters,
+digits and underscores). Set `lakebase_enabled` to `"false"` to run without a database: progress then stays in the
+browser.
 
 ### 3. Deploy
 
 ```bash
-npm install
-node scripts/deploy.mjs --profile <PROFILE> --dry-run   # print the plan, change nothing
-node scripts/deploy.mjs --profile <PROFILE>             # create → bind → sync → deploy
-node scripts/smoke-test.mjs --profile <PROFILE>         # check the result
-```
-
-Each step is safe to re-run, so redeploying after a config or content change is the same command. Useful flags:
-`--skip-create` (app already exists), `--no-prune` (do not delete stale workspace files).
-
-### Deploy as a Databricks Asset Bundle (recommended)
-
-`databricks.yml` declares the app, its `postgres` binding and the embedding-endpoint grant, so one command set
-replaces `scripts/deploy.mjs`:
-
-```bash
 databricks bundle validate --strict -t default -p <PROFILE>
-databricks bundle deploy   -t default -p <PROFILE>                    # create app, bind resources, upload source
-databricks bundle run lakebase_partner_hub -t default -p <PROFILE>    # start the app and deploy the uploaded source
+databricks bundle deploy   -t default -p <PROFILE>                  # create app, bind resources, upload source
+databricks bundle run lakebase_partner_hub -t default -p <PROFILE>  # start the app and deploy the uploaded source
 ```
 
-Keep the bundle variables in step with `config/app.config.json` (the app reads the JSON at runtime, the bundle
-binds the resources from variables): `app_name` ↔ `deployment.appName`, `lakebase_project` / `lakebase_branch` /
-`lakebase_database` ↔ `lakebase.*`, `embedding_endpoint` ↔ `ai.embeddingEndpoint`. Override per deploy with
-`--var lakebase_project=my-project`. Removed files are deleted from the workspace copy automatically, so the
-`--no-prune` handling in the script is not needed. `bundle destroy` removes the app.
+Override any variable without editing the file: `--var lakebase_project=my-project --var admin_emails=a@x.com`. For a
+second environment add a `targets:` entry with its own `variables:` (and `workspace.root_path` if wanted). To put the
+app in a space add `space: <name>` to the app resource. Removed files are deleted from the workspace copy
+automatically. `databricks bundle destroy` removes the app.
 
-### What the deploy script does (alternative to the bundle)
+The bundle:
 
-`scripts/deploy.mjs` reads `deployment.*` and `lakebase.*` from the config and:
+1. creates the app and its service principal **before first start**, so the principal creates and owns the schema,
+2. binds the `postgres` resource (`CAN_CONNECT_AND_CREATE`) and grants `CAN_QUERY` on the embedding endpoint (without
+   it the assistant uses keyword search),
+3. exports the variables to the app as environment variables (`resources.apps.*.config.env`), which
+   `server/content/loader.ts` validates at startup and fails loudly if anything is missing.
 
-1. creates the app if it does not exist (in `deployment.space` if set),
-2. binds the `postgres` resource (`CAN_CONNECT_AND_CREATE`) to the configured branch and database,
-3. tries to grant the app `CAN_QUERY` on the embedding endpoint (non-fatal — without it the assistant uses keyword search),
-4. syncs the source and deploys, starting the compute if it is stopped.
-
-Resource binding uses `update_mask=resources`, which **replaces** the whole list, so the script reads, merges by
-name and writes. It is safe to re-run.
-
-**Deploy before running locally.** The app's service principal must create the schema so it owns it. If you run
-locally first, your user owns the schema and the deployed app hits `permission denied for schema` (`42501`).
+**Deploy before running locally.** If you run locally first, your user owns the schema and the deployed app hits
+`permission denied for schema` (`42501`).
 
 ### Verify a deployment
 
 ```bash
-node scripts/smoke-test.mjs --profile <PROFILE>           # read-only checks
-node scripts/smoke-test.mjs --profile <PROFILE> --write   # also signs up a throw-away partner
+databricks bundle run smoke_test -t default -p <PROFILE>               # read-only checks
+databricks bundle run smoke_test -t default -p <PROFILE> -- --write    # also signs up a throw-away partner
 ```
 
 Checks: app running, `postgres` bound, config hides the admin list, answers not exposed, Lakebase connected,
@@ -184,7 +157,7 @@ its progress; the partner row itself remains and counts in admin totals.
 ## Develop
 
 ```bash
-cp .env.example .env     # set DATABRICKS_HOST etc.
+cp .env.example .env     # set DATABRICKS_HOST and the deployment settings (mirror databricks.yml)
 npm run dev
 ```
 
@@ -196,7 +169,7 @@ npm run dev
 | `npm run build` | Production build (`dist/server.js`, `client/dist/`) |
 
 Local admin access: the Apps proxy supplies `x-forwarded-email` in production. For local development only, set
-`DEV_ADMIN_EMAIL` to an address in `program.adminEmails`. It is ignored when `NODE_ENV=production`.
+`DEV_ADMIN_EMAIL` to an address in `ADMIN_EMAILS`. It is ignored when `NODE_ENV=production`.
 
 ## Knowledge base
 
@@ -246,9 +219,9 @@ current documentation it carries a `note` (see `docs/content-conflicts.md`).
 
 ## Optional: Lakehouse Sync
 
-`scripts/enable-lakehouse-sync.mjs` streams the app schema into Unity Catalog as `lb_<table>_history` Delta tables
-(Beta). It prints a plan unless `--apply` is passed and refuses to run until `program.lakehouseSync.catalog/schema`
-are set. The CDF config is immutable and replicates **every** table, including partner names and emails, so review
+`databricks bundle run enable_lakehouse_sync` (`scripts/enable-lakehouse-sync.mjs`) streams the app schema into Unity Catalog as `lb_<table>_history` Delta tables
+(Beta). It prints a plan unless `-- --apply` is passed and refuses to run until `lakehouse_sync_catalog` and
+`lakehouse_sync_schema` are set in `databricks.yml`. The CDF config is immutable and replicates **every** table, including partner names and emails, so review
 who can read the target schema first. Sample queries: `docs/lakehouse-analytics.sql`.
 
 ## Security notes
@@ -257,7 +230,7 @@ who can read the target schema first. Sample queries: `docs/lakehouse-analytics.
   partner's progress, leaderboard preference, and claim a certificate if the saved scores qualify. Certificates prove
   quiz results, not who the person is. Add SSO before using them for anything contractual.
 - **Admin access does not rely on typed email.** It uses the Apps-proxy `x-forwarded-email` matched against
-  `program.adminEmails`. The list is never sent to the browser.
+  `admin_emails`. The list is never sent to the browser.
 - The leaderboard is opt-in; the CSV export neutralises spreadsheet-formula injection.
 - All SQL values are bound parameters; the only interpolated identifier is the schema name, restricted to
   `^[a-z_][a-z0-9_]{0,62}$` in config validation and again at use.
