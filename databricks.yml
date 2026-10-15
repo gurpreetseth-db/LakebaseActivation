@@ -1,0 +1,65 @@
+# =============================================================================
+# Databricks Asset Bundle: Lakebase Partner Readiness app
+# =============================================================================
+#   databricks bundle validate -t default -p <PROFILE>
+#   databricks bundle deploy   -t default -p <PROFILE>   # create app, bind resources, upload source
+#   databricks bundle run lakebase_partner_hub -t default -p <PROFILE>   # start + deploy the app
+#
+# The workspace comes from the CLI profile (-p), never from this file.
+#
+# Keep the `lakebase_*` variables and `app_name` in step with `lakebase.*` and
+# `deployment.appName` in config/app.config.json: the app reads that file at
+# runtime, the bundle uses these variables to bind the postgres resource.
+# Override per deploy, e.g. `--var lakebase_project=my-project`.
+#
+# Deploy BEFORE running locally: the app's service principal must create the
+# schema so it owns it (otherwise `permission denied for schema`, 42501).
+# =============================================================================
+bundle:
+  name: lakebase-partner-hub
+
+variables:
+  app_name:
+    description: "Databricks App name (lowercase, hyphenated, unique per workspace). Mirrors deployment.appName."
+    default: lakebase-partner-hub
+  lakebase_project:
+    description: "Lakebase (autoscaling) project id. Mirrors lakebase.project."
+    default: agentic-memory
+  lakebase_branch:
+    description: "Lakebase branch id inside the project."
+    default: production
+  lakebase_database:
+    description: "Database resource id (final path segment, NOT necessarily the Postgres datname). Resolve with `databricks postgres list-databases projects/<project>/branches/<branch> -o json`."
+    default: databricks-postgres
+  embedding_endpoint:
+    description: "Serving endpoint the app queries to embed the knowledge base. Mirrors ai.embeddingEndpoint."
+    default: databricks-gte-large-en
+
+sync:
+  exclude:
+    - node_modules
+    - dist
+    - fieldkit-source # Databricks-internal Field Kit export; only cleared slides ship (built into client/public)
+
+resources:
+  apps:
+    lakebase_partner_hub:
+      name: ${var.app_name}
+      description: "Guided Lakebase enablement for partners"
+      source_code_path: .
+      resources:
+        # Name must stay `postgres`: app.yaml reads LAKEBASE_ENDPOINT via valueFrom: postgres.
+        - name: postgres
+          postgres:
+            branch: projects/${var.lakebase_project}/branches/${var.lakebase_branch}
+            database: projects/${var.lakebase_project}/branches/${var.lakebase_branch}/databases/${var.lakebase_database}
+            permission: CAN_CONNECT_AND_CREATE
+        # Optional in practice: without it the assistant falls back to keyword search.
+        - name: embedding-endpoint
+          serving_endpoint:
+            name: ${var.embedding_endpoint}
+            permission: CAN_QUERY
+
+targets:
+  default:
+    default: true

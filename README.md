@@ -137,7 +137,24 @@ node scripts/smoke-test.mjs --profile <PROFILE>         # check the result
 Each step is safe to re-run, so redeploying after a config or content change is the same command. Useful flags:
 `--skip-create` (app already exists), `--no-prune` (do not delete stale workspace files).
 
-### What the deploy script does
+### Deploy as a Databricks Asset Bundle (recommended)
+
+`databricks.yml` declares the app, its `postgres` binding and the embedding-endpoint grant, so one command set
+replaces `scripts/deploy.mjs`:
+
+```bash
+databricks bundle validate --strict -t default -p <PROFILE>
+databricks bundle deploy   -t default -p <PROFILE>                    # create app, bind resources, upload source
+databricks bundle run lakebase_partner_hub -t default -p <PROFILE>    # start the app and deploy the uploaded source
+```
+
+Keep the bundle variables in step with `config/app.config.json` (the app reads the JSON at runtime, the bundle
+binds the resources from variables): `app_name` ↔ `deployment.appName`, `lakebase_project` / `lakebase_branch` /
+`lakebase_database` ↔ `lakebase.*`, `embedding_endpoint` ↔ `ai.embeddingEndpoint`. Override per deploy with
+`--var lakebase_project=my-project`. Removed files are deleted from the workspace copy automatically, so the
+`--no-prune` handling in the script is not needed. `bundle destroy` removes the app.
+
+### What the deploy script does (alternative to the bundle)
 
 `scripts/deploy.mjs` reads `deployment.*` and `lakebase.*` from the config and:
 
