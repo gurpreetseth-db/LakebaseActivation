@@ -5,15 +5,29 @@ A Databricks App that enables partners on **Databricks Lakebase**, deployed and 
 truth for every deployment setting; the app resource, its resource bindings, the app's runtime environment and the
 post-deploy scripts are all derived from its `variables:` block. Nothing is configured anywhere else.
 
+## Layout
+
+```
+databricks.yml   the bundle: the only deployment configuration
+README.md
+docs/            reference SQL and content notes
+app/             the app's source root (uploaded and built on deploy)
+  package.json, package-lock.json, appkit.plugins.json   npm dependencies, build/start scripts, AppKit plugin manifest
+  tsconfig*.json, tsdown.server.config.ts, vitest.config.ts, eslint.config.js, .prettier*   build, test and lint tooling
+  client/, server/   React frontend and Express backend
+  config/            content (branding, modules, quiz, Field Kit)
+  scripts/           smoke test, Lakehouse Sync, Field Kit build
+```
+
 ## What the bundle contains
 
 | Bundle element | Defined in `databricks.yml` | Purpose |
 |---|---|---|
 | `variables:` | App, Lakebase, admin, AI and Lakehouse Sync settings | The only place deployment settings live |
-| `resources.apps.lakebase_partner_hub` | App name, description, start command | The Databricks App |
+| `resources.apps.lakebase_partner_hub` | App name, description, start command, `source_code_path: ./app` | The Databricks App |
 | `…config.env` | One environment variable per setting | Exports the variables to the running app |
 | `…resources` | `postgres` (`CAN_CONNECT_AND_CREATE`), `embedding-endpoint` (`CAN_QUERY`) | Grants the app's service principal access |
-| `sync.exclude` | `node_modules`, `dist`, `fieldkit-source` | Keeps build output and the internal Field Kit export out of the upload |
+| `sync.exclude` | `app/node_modules`, `app/dist`, `app/fieldkit-source` | Keeps build output and the internal Field Kit export out of the upload |
 | `scripts.smoke_test` | Post-deploy checks | `bundle run smoke_test` |
 | `scripts.enable_lakehouse_sync` | Optional Lakehouse Sync (Beta) | `bundle run enable_lakehouse_sync` |
 
@@ -51,13 +65,13 @@ databricks bundle deploy -t default -p <PROFILE> --var lakebase_project=my-proje
 ```
 
 `app_name`, the Lakebase ids and the endpoints are used both to bind resources and, through `config.env`, by the
-running app, so one edit keeps both in step. `server/content/loader.ts` validates the exported environment at startup
+running app, so one edit keeps both in step. `app/server/content/loader.ts` validates the exported environment at startup
 and fails loudly if a setting is missing or malformed.
 
-### Content: `config/`
+### Content: `app/config/`
 
 Branding, onboarding fields, scoring, modules, the quiz bank and Field Kit text are content, not deployment settings.
-They live in `config/app.config.json` and `config/content/*.json` and ship with the bundle, so editing them and running
+They live in `app/config/app.config.json` and `app/config/content/*.json` and ship with the bundle, so editing them and running
 `bundle deploy` publishes the change.
 
 ## Deploy
