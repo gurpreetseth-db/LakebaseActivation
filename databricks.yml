@@ -7,14 +7,16 @@
 #   - the app resource, its postgres + serving-endpoint bindings
 #   - the runtime env the app reads (resources.apps.*.config.env -> server/content/loader.ts)
 #   - the post-deploy scripts (smoke_test, enable_lakehouse_sync)
-# Content (branding, modules, scoring, quiz, Field Kit) stays in config/*.json.
+# Layout: the bundle lives at the repo root; the Node/React app and ALL its tooling
+# (package.json, tsconfig*, vitest, eslint, prettier, appkit) live in app/, which is
+# the app's source root. Content (branding, modules, scoring, quiz, Field Kit) stays in app/config/*.json.
 #
 # The workspace comes from the CLI profile (-p), never from this file.
 #
 #   databricks bundle validate --strict -t default -p <PROFILE>
 #   databricks bundle deploy   -t default -p <PROFILE>                  # create app, bind resources, upload source
 #   databricks bundle run lakebase_partner_hub -t default -p <PROFILE>  # start the app and deploy the source
-#   databricks bundle run smoke_test           -t default -p <PROFILE>  # verify (add `-- --write` for write checks)
+#   databricks bundle run smoke_test           -t default -p <PROFILE>  # verify (add `--var smoke_write=true` for write checks)
 #   databricks bundle destroy  -t default -p <PROFILE>                  # remove the app
 #
 # Deploy BEFORE running locally: the app's service principal must create the
@@ -73,19 +75,27 @@ variables:
     default: ""
   lakehouse_sync_cdf_config_id:
     default: partner-activation-sync
+  lakehouse_sync_apply:
+    description: "\"true\" makes `bundle run enable_lakehouse_sync` create the (immutable) CDF config; \"false\" only prints the plan."
+    default: "false"
+
+  # ---- Smoke test ---------------------------------------------------------------
+  smoke_write:
+    description: "\"true\" makes `bundle run smoke_test` also sign up a throw-away partner, grade a quiz and clear its progress."
+    default: "false"
 
 sync:
   exclude:
-    - node_modules
-    - dist
-    - fieldkit-source # Databricks-internal Field Kit export; only cleared slides ship (built into client/public)
+    - app/node_modules
+    - app/dist
+    - app/fieldkit-source # Databricks-internal Field Kit export; only cleared slides ship (built into client/public)
 
 resources:
   apps:
     lakebase_partner_hub:
       name: ${var.app_name}
       description: ${var.app_description}
-      source_code_path: .
+      source_code_path: ./app
       config:
         command: ['npm', 'run', 'start']
         env:
@@ -122,18 +132,20 @@ resources:
 
 scripts:
   smoke_test:
-    content: node scripts/smoke-test.mjs
+    content: node app/scripts/smoke-test.mjs
     env:
       APP_NAME: ${var.app_name}
       LAKEBASE_SCHEMA: ${var.lakebase_schema}
+      SMOKE_WRITE: ${var.smoke_write}
   enable_lakehouse_sync:
-    content: node scripts/enable-lakehouse-sync.mjs
+    content: node app/scripts/enable-lakehouse-sync.mjs
     env:
       LAKEBASE_DATABASE: projects/${var.lakebase_project}/branches/${var.lakebase_branch}/databases/${var.lakebase_database}
       LAKEBASE_SCHEMA: ${var.lakebase_schema}
       LAKEHOUSE_SYNC_CATALOG: ${var.lakehouse_sync_catalog}
       LAKEHOUSE_SYNC_SCHEMA: ${var.lakehouse_sync_schema}
       LAKEHOUSE_SYNC_CDF_CONFIG_ID: ${var.lakehouse_sync_cdf_config_id}
+      LAKEHOUSE_SYNC_APPLY: ${var.lakehouse_sync_apply}
 
 targets:
   default:

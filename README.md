@@ -5,15 +5,29 @@ A Databricks App that enables partners on **Databricks Lakebase**, deployed and 
 truth for every deployment setting; the app resource, its resource bindings, the app's runtime environment and the
 post-deploy scripts are all derived from its `variables:` block. Nothing is configured anywhere else.
 
+## Layout
+
+```
+databricks.yml   the bundle: the only deployment configuration
+README.md
+docs/            reference SQL and content notes
+app/             the app's source root (uploaded and built on deploy)
+  package.json, package-lock.json, appkit.plugins.json   npm dependencies, build/start scripts, AppKit plugin manifest
+  tsconfig*.json, tsdown.server.config.ts, vitest.config.ts, eslint.config.js, .prettier*   build, test and lint tooling
+  client/, server/   React frontend and Express backend
+  config/            content (branding, modules, quiz, Field Kit)
+  scripts/           smoke test, Lakehouse Sync, Field Kit build
+```
+
 ## What the bundle contains
 
 | Bundle element | Defined in `databricks.yml` | Purpose |
 |---|---|---|
 | `variables:` | App, Lakebase, admin, AI and Lakehouse Sync settings | The only place deployment settings live |
-| `resources.apps.lakebase_partner_hub` | App name, description, start command | The Databricks App |
+| `resources.apps.lakebase_partner_hub` | App name, description, start command, `source_code_path: ./app` | The Databricks App |
 | `…config.env` | One environment variable per setting | Exports the variables to the running app |
 | `…resources` | `postgres` (`CAN_CONNECT_AND_CREATE`), `embedding-endpoint` (`CAN_QUERY`) | Grants the app's service principal access |
-| `sync.exclude` | `node_modules`, `dist`, `fieldkit-source` | Keeps build output and the internal Field Kit export out of the upload |
+| `sync.exclude` | `app/node_modules`, `app/dist`, `app/fieldkit-source` | Keeps build output and the internal Field Kit export out of the upload |
 | `scripts.smoke_test` | Post-deploy checks | `bundle run smoke_test` |
 | `scripts.enable_lakehouse_sync` | Optional Lakehouse Sync (Beta) | `bundle run enable_lakehouse_sync` |
 
@@ -51,13 +65,13 @@ databricks bundle deploy -t default -p <PROFILE> --var lakebase_project=my-proje
 ```
 
 `app_name`, the Lakebase ids and the endpoints are used both to bind resources and, through `config.env`, by the
-running app, so one edit keeps both in step. `server/content/loader.ts` validates the exported environment at startup
+running app, so one edit keeps both in step. `app/server/content/loader.ts` validates the exported environment at startup
 and fails loudly if a setting is missing or malformed.
 
-### Content: `config/`
+### Content: `app/config/`
 
 Branding, onboarding fields, scoring, modules, the quiz bank and Field Kit text are content, not deployment settings.
-They live in `config/app.config.json` and `config/content/*.json` and ship with the bundle, so editing them and running
+They live in `app/config/app.config.json` and `app/config/content/*.json` and ship with the bundle, so editing them and running
 `bundle deploy` publishes the change.
 
 ## Deploy
@@ -112,12 +126,12 @@ the app in a space, add `space: <name>` to `resources.apps.lakebase_partner_hub`
 
 ```bash
 databricks bundle run smoke_test -t default -p <PROFILE>               # read-only checks
-databricks bundle run smoke_test -t default -p <PROFILE> -- --write    # also signs up a throw-away partner
+databricks bundle run smoke_test -t default -p <PROFILE> --var smoke_write=true   # also signs up a throw-away partner
 ```
 
 Checks: app running, `postgres` bound, config hides the admin list, answers not exposed, Lakebase connected,
 knowledge base indexed (and whether search is semantic or keyword), content endpoints, Field Kit serves cleared slides
-only, certificate verification rejects bad ids, admin endpoints protected. `--write` creates
+only, certificate verification rejects bad ids, admin endpoints protected. `smoke_write=true` creates
 `smoke-test@example.invalid`, grades a quiz, and clears its progress; the partner row itself remains and counts in admin
 totals.
 
@@ -128,7 +142,7 @@ Streams the app's Postgres schema into Unity Catalog as `lb_<table>_history` Del
 
 ```bash
 databricks bundle run enable_lakehouse_sync -t default -p <PROFILE>              # print the plan only
-databricks bundle run enable_lakehouse_sync -t default -p <PROFILE> -- --apply   # create the CDF config
+databricks bundle run enable_lakehouse_sync -t default -p <PROFILE> --var lakehouse_sync_apply=true   # create the CDF config
 ```
 
 The CDF config is immutable and replicates **every** table, including partner names and emails, so review who can

@@ -5,7 +5,7 @@
  * supplies auth and the settings from databricks.yml variables (lakehouse_sync_*, lakebase_*):
  *
  *   databricks bundle run enable_lakehouse_sync -t <TARGET> -p <PROFILE>            # plan only
- *   databricks bundle run enable_lakehouse_sync -t <TARGET> -p <PROFILE> -- --apply # create the CDF config
+ *   databricks bundle run enable_lakehouse_sync -t <TARGET> -p <PROFILE> --var lakehouse_sync_apply=true  # create the CDF config
  *
  * The CDF config is immutable once created, and it replicates EVERY table in the
  * schema, including partner names and emails, into Unity Catalog. Review who can
@@ -13,7 +13,7 @@
  */
 import { execFileSync } from 'node:child_process';
 
-const apply = process.argv.slice(2).includes('--apply');
+const apply = process.env.LAKEHOUSE_SYNC_APPLY === 'true';
 const need = (n) => process.env[n] || (console.error(`${n} is not set: run this through \`databricks bundle run enable_lakehouse_sync\``), process.exit(2));
 
 const catalog = process.env.LAKEHOUSE_SYNC_CATALOG;
@@ -32,7 +32,7 @@ const cmd = ['postgres', 'create-cdf-config', database, catalog, schema, pgSchem
 console.log(`Replicate Postgres schema "${pgSchema}" (${database})\n  -> Unity Catalog ${catalog}.${schema} as lb_<table>_history tables`);
 console.log(`\ndatabricks ${cmd.join(' ')}\n`);
 if (!apply) {
-  console.log('Plan only. Re-run with --apply to create it.');
+  console.log('Plan only. Re-run with --var lakehouse_sync_apply=true to create it.');
   process.exit(0);
 }
 console.log(execFileSync('databricks', cmd, { encoding: 'utf8' }));
