@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Post-deploy smoke test against the running app. Uses your Databricks CLI login
- * to authenticate to the app URL.
+ * Post-deploy smoke test against the running app. Run it through the bundle, which supplies
+ * auth and the deployment settings (APP_NAME, LAKEBASE_SCHEMA) from databricks.yml variables:
  *
- *   node scripts/smoke-test.mjs --profile <PROFILE>            # read-only checks
- *   node scripts/smoke-test.mjs --profile <PROFILE> --write    # also signs up a throw-away partner,
- *                                                                grades a quiz, then clears its progress
+ *   databricks bundle run smoke_test -t <TARGET> -p <PROFILE>
+ *   databricks bundle run smoke_test -t <TARGET> -p <PROFILE> -- --write   # also signs up a throw-away
+ *                                                                partner, grades a quiz, then clears its progress
  *
  * Exit code is non-zero if any check fails, so it can gate a release.
  */
@@ -13,14 +13,14 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
-const opt = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
-const profile = opt('--profile');
 const write = args.includes('--write');
-const base = profile ? ['--profile', profile] : [];
-const cli = (...a) => execFileSync('databricks', [...a, ...base], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+const cli = (...a) => execFileSync('databricks', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+const need = (n) => process.env[n] ?? (console.error(`${n} is not set: run this through \`databricks bundle run smoke_test\``), process.exit(2));
+const appName = need('APP_NAME');
+const lakebaseSchema = need('LAKEBASE_SCHEMA');
 
 const config = JSON.parse(readFileSync(new URL('../config/app.config.json', import.meta.url), 'utf8'));
-const app = JSON.parse(cli('apps', 'get', config.deployment.appName, '-o', 'json'));
+const app = JSON.parse(cli('apps', 'get', appName, '-o', 'json'));
 const token = JSON.parse(cli('auth', 'token', '-o', 'json')).access_token;
 const url = app.url.replace(/\/$/, '');
 
@@ -74,7 +74,7 @@ await check('questions are served without answers', async () => {
 await check('Lakebase is connected', async () => {
   const r = await http('GET', '/api/lakebase/status');
   must(r.json?.connected === true, `not connected: ${r.json?.error ?? r.status}`);
-  must(r.json.schema === config.lakebase.schema, `schema is ${r.json.schema}`);
+  must(r.json.schema === lakebaseSchema, `schema is ${r.json.schema}`);
   return `${r.json.latencyMs} ms, schema ${r.json.schema}`;
 });
 await check('knowledge base is indexed', async () => {
