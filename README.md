@@ -157,6 +157,10 @@ read the target schema first. Sample queries: `docs/lakehouse-analytics.sql`.
 | `bundle deploy` says the app already exists | Bind it first (see [Adopting an app that already exists](#adopting-an-app-that-already-exists)) |
 | Cannot attach the `postgres` resource | The app is in a restricted space; deploy outside it (see Prerequisites) |
 
+## Data collection
+
+To improve users' experience and this asset's quality, the app reports a usage event when a page is opened. This information is captured for product improvement only, not for marketing purposes, and doesn't contain PII: the email of Databricks users is hashed, and nobody else's is sent. By using this asset, you consent to this data collection. If you wish to disable it, set the environment variable `DBDEMOS_TRACKER_DISABLED=1` (e.g. add it to `resources.apps.lakebase_partner_hub.config.env` in `databricks.yml`).
+
 ## Tear down
 
 ```bash

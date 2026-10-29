@@ -7,6 +7,7 @@ import { createEmbedder, type Embedder } from './knowledge/embed.js';
 import { ensureKnowledgeSchema, search, stats, syncChunks } from './knowledge/store.js';
 import { loadPublicFieldkit } from './content/fieldkit.js';
 import { registerRoutes } from './routes.js';
+import { registerTracker } from './tracker.js';
 
 // Load config once at startup: content from config/app.config.json, deployment settings from the
 // environment (exported by the bundle from the databricks.yml variables). The serving plugin reads
@@ -65,6 +66,7 @@ await createApp({
     const docsById = new Map(corpus.map((c) => [c.id, c.docs]));
 
     appkit.server.extend((app) => {
+      registerTracker(app);
       registerRoutes(app, {
         config,
         repo,
