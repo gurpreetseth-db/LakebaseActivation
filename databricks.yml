@@ -40,7 +40,7 @@ variables:
     default: "true"
   lakebase_project:
     description: "Lakebase project id."
-    default: agentic-memory
+    default: lakebase-partner-hub
   lakebase_branch:
     description: "Branch id inside the project."
     default: production
