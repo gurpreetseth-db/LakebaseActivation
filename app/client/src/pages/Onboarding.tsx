@@ -139,8 +139,10 @@ export function Onboarding() {
                   type="button"
                   role="tab"
                   aria-selected={mode === m}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    mode === m ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  className={`rounded-md px-3 py-2 text-sm font-bold transition-colors ${
+                    mode === m
+                      ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
+                      : 'text-foreground/80 hover:bg-background/60 hover:text-foreground'
                   }`}
                   onClick={() => {
                     setMode(m);
