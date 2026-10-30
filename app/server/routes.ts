@@ -121,7 +121,8 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
   // Sign-ups are anonymous, so cap them to stop someone flooding the database. The key is the LAST
   // x-forwarded-for hop, which the platform proxy appends; earlier hops are client-supplied and forgeable.
   const SIGNUPS_PER_CLIENT = 30;
-  const SIGNUPS_GLOBAL = 300;
+  // A backstop far above real demand; the per-client limit is the main control. Hitting it is logged.
+  const SIGNUPS_GLOBAL = 2000;
   const SIGNUP_WINDOW_MS = 3_600_000;
   const MAX_TRACKED_CLIENTS = 10_000;
   const signups = new Map<string, { count: number; resetAt: number }>();
@@ -133,7 +134,11 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
   const signupAllowed = (key: string): boolean => {
     const now = Date.now();
     if (globalSignups.resetAt < now) globalSignups = { count: 0, resetAt: now + SIGNUP_WINDOW_MS };
-    if (globalSignups.count >= SIGNUPS_GLOBAL) return false;
+    if (globalSignups.count >= SIGNUPS_GLOBAL) {
+      if (globalSignups.count === SIGNUPS_GLOBAL) console.warn('[signup] global hourly sign-up ceiling reached; refusing new sign-ups');
+      globalSignups.count += 1;
+      return false;
+    }
     // Keep the map bounded: drop expired entries once it grows, and refuse new clients if it is still full.
     if (signups.size >= MAX_TRACKED_CLIENTS) {
       for (const [k, v] of signups) if (v.resetAt < now) signups.delete(k);
