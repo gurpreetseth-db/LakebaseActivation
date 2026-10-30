@@ -58,6 +58,12 @@ variables:
   admin_emails:
     description: "Comma-separated emails that see the Admin tab (matched against x-forwarded-email, never sent to the browser)."
     default: gurpreet.sethi@databricks.com
+  retention_days:
+    description: "Learners with no activity for this many days, and Ask Lakebase questions older than this, are deleted automatically."
+    default: "30"
+  pii_migrate:
+    description: "One-time: set to true for a single deploy to convert a database that still stores emails/names to learner codes (existing learners need a new code), then set back to false."
+    default: "false"
 
   # ---- AI ---------------------------------------------------------------------
   ai_endpoint_name:
@@ -118,6 +124,10 @@ resources:
             value: ${var.ai_endpoint_name}
           - name: AI_EMBEDDING_ENDPOINT
             value: ${var.ai_embedding_endpoint}
+          - name: RETENTION_DAYS
+            value: ${var.retention_days}
+          - name: PII_MIGRATE
+            value: ${var.pii_migrate}
       resources:
         # Name must stay `postgres`: config.env reads LAKEBASE_ENDPOINT via value_from: postgres.
         - name: postgres

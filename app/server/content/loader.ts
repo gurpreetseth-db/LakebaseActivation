@@ -233,6 +233,10 @@ const deploymentEnvSchema = z.object({
   ADMIN_EMAILS: z.string().transform((v) => v.split(',').map((e) => e.trim()).filter(Boolean)).pipe(z.array(z.string().email())),
   AI_ENDPOINT_NAME: z.string().min(1),
   AI_EMBEDDING_ENDPOINT: z.string().min(1),
+  /** Learners with no activity (and Ask log rows) older than this are purged automatically. */
+  RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
+  /** One-time: convert a database created before PII minimisation (emails/names) to learner codes. */
+  PII_MIGRATE: envBool.optional().default(false),
 });
 
 type FileConfig = z.infer<typeof fileConfigSchema>;
@@ -242,6 +246,7 @@ export type AppConfig = Omit<FileConfig, 'program' | 'ai'> & {
     adminEmails: string[];
   };
   ai: FileConfig['ai'] & { endpointName: string; embeddingEndpoint: string };
+  privacy: { retentionDays: number; migrateLegacy: boolean };
 };
 
 function mergeDeployment(file: FileConfig): AppConfig {
@@ -267,6 +272,7 @@ function mergeDeployment(file: FileConfig): AppConfig {
       adminEmails: e.ADMIN_EMAILS,
     },
     ai: { ...file.ai, endpointName: e.AI_ENDPOINT_NAME, embeddingEndpoint: e.AI_EMBEDDING_ENDPOINT },
+    privacy: { retentionDays: e.RETENTION_DAYS, migrateLegacy: e.PII_MIGRATE },
   };
 }
 export type DemoContent = z.infer<typeof demoSchema>;

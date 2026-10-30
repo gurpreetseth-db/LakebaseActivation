@@ -1,16 +1,18 @@
 /**
- * Parameterised data access for partners, quiz progress, labs and the question log.
+ * Parameterised data access for learners, quiz progress, labs, the question log and deletion requests.
  * Every value is bound as a parameter; only the (validated) schema name is
- * interpolated. Identity is the lowercased email — there is no SSO yet, so this
- * is NOT a security boundary.
+ * interpolated. A learner is identified by a random id and authenticated by the hash of their
+ * learner code; no email or personal name is ever stored.
  */
 import { assertIdentifier, type Queryable } from './schema.js';
-import type { PartnerRecord, ProgressRecord } from '../program/admin.js';
+import { generateLearnerCode, hashLearnerCode, isWellFormedCode } from './learner-code.js';
+import type { LearnerRecord, ProgressRecord } from '../program/admin.js';
 
-export interface PartnerRow {
-  name: string;
-  email: string;
+export interface Learner {
+  id: string;
   org: string;
+  nickname: string | null;
+  leaderboardOptIn: boolean;
 }
 
 export interface ProgressRow {
@@ -24,32 +26,49 @@ export interface ProgressRow {
 
 export type ProgressMap = Record<string, ProgressRow>;
 
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
+export interface DataRequest {
+  id: number;
+  learnerId: string;
+  org: string;
+  status: string;
+  requestedAt: string;
+  completedAt: string | null;
+  completedBy: string | null;
 }
+
+const iso = (v: unknown): string => new Date(v as string).toISOString();
 
 export function createRepo(db: Queryable, schema: string) {
   const s = assertIdentifier(schema);
 
   return {
-    async upsertPartner(p: PartnerRow): Promise<PartnerRow> {
-      const email = normalizeEmail(p.email);
+    /** Creates a learner and returns the code, which is shown once and never stored in clear. */
+    async register(org: string, nickname: string | null): Promise<{ learner: Learner; code: string }> {
+      const code = generateLearnerCode();
       const { rows } = await db.query(
-        `INSERT INTO ${s}.partners (email, name, org)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (email) DO UPDATE
-           SET name = EXCLUDED.name, org = EXCLUDED.org, last_seen_at = NOW()
-         RETURNING email, name, org`,
-        [email, p.name.trim(), p.org.trim()],
+        `INSERT INTO ${s}.learners (code_hash, org, nickname) VALUES ($1, $2, $3)
+         RETURNING id, org, nickname, leaderboard_opt_in`,
+        [hashLearnerCode(code), org.trim(), nickname?.trim() || null],
       );
-      return rows[0] as unknown as PartnerRow;
+      return { learner: toLearner(rows[0]), code };
     },
 
-    async getProgress(emailRaw: string): Promise<ProgressMap> {
+    /** Resolves a learner code to the learner and records activity (drives the inactivity purge). */
+    async authenticate(code: string | undefined): Promise<Learner | null> {
+      if (!code || !isWellFormedCode(code)) return null;
+      const { rows } = await db.query(
+        `UPDATE ${s}.learners SET last_seen_at = NOW() WHERE code_hash = $1
+         RETURNING id, org, nickname, leaderboard_opt_in`,
+        [hashLearnerCode(code)],
+      );
+      return rows.length ? toLearner(rows[0]) : null;
+    },
+
+    async getProgress(learnerId: string): Promise<ProgressMap> {
       const { rows } = await db.query(
         `SELECT module_key, score, correct, total, answers, completed_at
-           FROM ${s}.module_progress WHERE email = $1`,
-        [normalizeEmail(emailRaw)],
+           FROM ${s}.module_progress WHERE learner_id = $1`,
+        [learnerId],
       );
       const out: ProgressMap = {};
       for (const r of rows) {
@@ -59,52 +78,50 @@ export function createRepo(db: Queryable, schema: string) {
           correct: Number(r.correct),
           total: Number(r.total),
           answers: (r.answers ?? {}) as Record<string, string>,
-          completedAt: r.completed_at ? new Date(r.completed_at as string).toISOString() : null,
+          completedAt: r.completed_at ? iso(r.completed_at) : null,
         };
       }
       return out;
     },
 
-    /** Stores the attempt and updates the partner's latest result for the module. */
+    /** Stores the attempt and updates the learner's latest result for the module. */
     async recordAttempt(
-      emailRaw: string,
+      learnerId: string,
       moduleKey: string,
       result: { score: number; correct: number; total: number; answers: Record<string, string> },
     ): Promise<void> {
-      const email = normalizeEmail(emailRaw);
       const answers = JSON.stringify(result.answers);
       await db.query(
-        `INSERT INTO ${s}.quiz_attempts (email, module_key, score, correct, total, answers)
+        `INSERT INTO ${s}.quiz_attempts (learner_id, module_key, score, correct, total, answers)
          VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
-        [email, moduleKey, result.score, result.correct, result.total, answers],
+        [learnerId, moduleKey, result.score, result.correct, result.total, answers],
       );
       await db.query(
-        `INSERT INTO ${s}.module_progress (email, module_key, score, correct, total, answers)
+        `INSERT INTO ${s}.module_progress (learner_id, module_key, score, correct, total, answers)
          VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-         ON CONFLICT (email, module_key) DO UPDATE
+         ON CONFLICT (learner_id, module_key) DO UPDATE
            SET score = EXCLUDED.score, correct = EXCLUDED.correct, total = EXCLUDED.total,
                answers = EXCLUDED.answers, completed_at = NOW(),
                attempts = ${s}.module_progress.attempts + 1`,
-        [email, moduleKey, result.score, result.correct, result.total, answers],
+        [learnerId, moduleKey, result.score, result.correct, result.total, answers],
       );
     },
 
-    async setLab(emailRaw: string, moduleKey: string, steps: number[], total: number): Promise<void> {
+    async setLab(learnerId: string, moduleKey: string, steps: number[], total: number): Promise<void> {
       const status = total > 0 && steps.length >= total ? 'completed' : 'in-progress';
       await db.query(
-        `INSERT INTO ${s}.lab_checks (email, module_key, status, detail)
+        `INSERT INTO ${s}.lab_checks (learner_id, module_key, status, detail)
          VALUES ($1, $2, $3, $4::jsonb)
-         ON CONFLICT (email, module_key) DO UPDATE
+         ON CONFLICT (learner_id, module_key) DO UPDATE
            SET status = EXCLUDED.status, detail = EXCLUDED.detail, checked_at = NOW()`,
-        [normalizeEmail(emailRaw), moduleKey, status, JSON.stringify({ mode: 'self-attested', steps, total })],
+        [learnerId, moduleKey, status, JSON.stringify({ mode: 'self-attested', steps, total })],
       );
     },
 
-    async getLabs(emailRaw: string): Promise<Record<string, { status: string; steps: number[] }>> {
-      const { rows } = await db.query(
-        `SELECT module_key, status, detail FROM ${s}.lab_checks WHERE email = $1`,
-        [normalizeEmail(emailRaw)],
-      );
+    async getLabs(learnerId: string): Promise<Record<string, { status: string; steps: number[] }>> {
+      const { rows } = await db.query(`SELECT module_key, status, detail FROM ${s}.lab_checks WHERE learner_id = $1`, [
+        learnerId,
+      ]);
       const out: Record<string, { status: string; steps: number[] }> = {};
       for (const r of rows) {
         const detail = (r.detail ?? {}) as { steps?: number[] };
@@ -113,33 +130,31 @@ export function createRepo(db: Queryable, schema: string) {
       return out;
     },
 
-    async logAsk(email: string | null, question: string, answer: string, mode: string, sources: unknown): Promise<void> {
+    async logAsk(learnerId: string | null, question: string, answer: string, mode: string, sources: unknown): Promise<void> {
       await db.query(
-        `INSERT INTO ${s}.ask_log (email, question, answer, mode, sources) VALUES ($1, $2, $3, $4, $5::jsonb)`,
-        [email ? normalizeEmail(email) : null, question, answer, mode, JSON.stringify(sources)],
+        `INSERT INTO ${s}.ask_log (learner_id, question, answer, mode, sources) VALUES ($1, $2, $3, $4, $5::jsonb)`,
+        [learnerId, question, answer, mode, JSON.stringify(sources)],
       );
     },
 
-    async listPartners(): Promise<PartnerRecord[]> {
+    async listLearners(): Promise<LearnerRecord[]> {
       const { rows } = await db.query(
-        `SELECT email, name, org, created_at, last_seen_at, leaderboard_opt_in FROM ${s}.partners`,
+        `SELECT id, org, nickname, created_at, last_seen_at, leaderboard_opt_in FROM ${s}.learners`,
       );
       return rows.map((r) => ({
-        email: r.email as string,
-        name: r.name as string,
+        id: r.id as string,
         org: r.org as string,
-        createdAt: new Date(r.created_at as string).toISOString(),
-        lastSeenAt: new Date(r.last_seen_at as string).toISOString(),
+        nickname: (r.nickname as string | null) ?? null,
+        createdAt: iso(r.created_at),
+        lastSeenAt: iso(r.last_seen_at),
         leaderboardOptIn: Boolean(r.leaderboard_opt_in),
       }));
     },
 
     async allProgress(): Promise<ProgressRecord[]> {
-      const { rows } = await db.query(
-        `SELECT email, module_key, score, attempts, answers FROM ${s}.module_progress`,
-      );
+      const { rows } = await db.query(`SELECT learner_id, module_key, score, attempts, answers FROM ${s}.module_progress`);
       return rows.map((r) => ({
-        email: r.email as string,
+        learnerId: r.learner_id as string,
         moduleKey: r.module_key as string,
         score: Number(r.score),
         attempts: Number(r.attempts),
@@ -155,56 +170,90 @@ export function createRepo(db: Queryable, schema: string) {
       return rows.map((r) => ({
         question: r.question as string,
         mode: r.mode as string,
-        createdAt: new Date(r.created_at as string).toISOString(),
+        createdAt: iso(r.created_at),
       }));
     },
 
-    async setLeaderboardOptIn(emailRaw: string, optIn: boolean): Promise<boolean> {
+    /** Sets the leaderboard preference; the nickname is replaced only when one is given. */
+    async setLeaderboardOptIn(learnerId: string, optIn: boolean, nickname?: string | null): Promise<boolean> {
       const { rows } = await db.query(
-        `UPDATE ${s}.partners SET leaderboard_opt_in = $2 WHERE email = $1 RETURNING email`,
-        [normalizeEmail(emailRaw), optIn],
+        `UPDATE ${s}.learners
+            SET leaderboard_opt_in = $2, nickname = CASE WHEN $3::boolean THEN $4 ELSE nickname END
+          WHERE id = $1 RETURNING id`,
+        [learnerId, optIn, nickname !== undefined, nickname?.trim() || null],
       );
       return rows.length > 0;
     },
 
-    /** Keeps the original certificate id and issue date; refreshes the score on re-issue. */
-    async issueCertificate(emailRaw: string, overall: number, level: string): Promise<{ id: string; issuedAt: string }> {
-      const { rows } = await db.query(
-        `INSERT INTO ${s}.certificates (email, overall_score, level) VALUES ($1, $2, $3)
-         ON CONFLICT (email) DO UPDATE SET overall_score = EXCLUDED.overall_score, level = EXCLUDED.level
-         RETURNING id, issued_at`,
-        [normalizeEmail(emailRaw), overall, level],
-      );
-      return { id: rows[0].id as string, issuedAt: new Date(rows[0].issued_at as string).toISOString() };
+    /** Learner-initiated reset of their own results; the learner record itself stays. */
+    async deleteProgress(learnerId: string): Promise<void> {
+      await db.query(`DELETE FROM ${s}.module_progress WHERE learner_id = $1`, [learnerId]);
+      await db.query(`DELETE FROM ${s}.quiz_attempts WHERE learner_id = $1`, [learnerId]);
+      await db.query(`DELETE FROM ${s}.lab_checks WHERE learner_id = $1`, [learnerId]);
     },
 
-    async getCertificate(id: string): Promise<{
-      id: string;
-      name: string;
-      org: string;
-      overall: number;
-      level: string;
-      issuedAt: string;
-    } | null> {
-      const { rows } = await db.query(
-        `SELECT c.id, p.name, p.org, c.overall_score, c.level, c.issued_at
-           FROM ${s}.certificates c JOIN ${s}.partners p ON p.email = c.email WHERE c.id = $1`,
-        [id],
+    /** Files a deletion request for the admin. One pending request per learner. */
+    async requestErasure(learner: Learner): Promise<void> {
+      await db.query(
+        `INSERT INTO ${s}.data_requests (learner_id, org) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [learner.id, learner.org],
       );
-      if (rows.length === 0) return null;
-      const r = rows[0];
-      return {
-        id: r.id as string,
-        name: r.name as string,
+    },
+
+    async hasPendingRequest(learnerId: string): Promise<boolean> {
+      const { rows } = await db.query(
+        `SELECT 1 FROM ${s}.data_requests WHERE learner_id = $1 AND status = 'pending'`,
+        [learnerId],
+      );
+      return rows.length > 0;
+    },
+
+    async listRequests(): Promise<DataRequest[]> {
+      const { rows } = await db.query(
+        `SELECT id, learner_id, org, status, requested_at, completed_at, completed_by
+           FROM ${s}.data_requests ORDER BY (status = 'pending') DESC, requested_at DESC LIMIT 200`,
+      );
+      return rows.map((r) => ({
+        id: Number(r.id),
+        learnerId: r.learner_id as string,
         org: r.org as string,
-        overall: Number(r.overall_score),
-        level: r.level as string,
-        issuedAt: new Date(r.issued_at as string).toISOString(),
-      };
+        status: r.status as string,
+        requestedAt: iso(r.requested_at),
+        completedAt: r.completed_at ? iso(r.completed_at) : null,
+        completedBy: (r.completed_by as string | null) ?? null,
+      }));
     },
 
-    async deleteProgress(emailRaw: string): Promise<void> {
-      await db.query(`DELETE FROM ${s}.module_progress WHERE email = $1`, [normalizeEmail(emailRaw)]);
+    /**
+     * Admin erasure of one request: deleting the learner cascades to progress, attempts, labs and the
+     * Ask log; the request row stays as the erasure record. Returns false for an unknown or closed request.
+     */
+    async erase(requestId: number, adminEmail: string): Promise<boolean> {
+      const { rows } = await db.query(
+        `SELECT learner_id FROM ${s}.data_requests WHERE id = $1 AND status = 'pending'`,
+        [requestId],
+      );
+      if (rows.length === 0) return false;
+      await db.query(`DELETE FROM ${s}.learners WHERE id = $1`, [rows[0].learner_id]);
+      await db.query(
+        `UPDATE ${s}.data_requests SET status = 'erased', completed_at = NOW(), completed_by = $2 WHERE id = $1`,
+        [requestId, adminEmail],
+      );
+      return true;
+    },
+
+    /** Retention: drops inactive learners (cascading) and old Ask log rows. Returns counts only. */
+    async purgeExpired(retentionDays: number): Promise<{ learners: number; asks: number }> {
+      const days = Math.max(1, Math.floor(retentionDays));
+      const learners = await db.query(
+        `DELETE FROM ${s}.learners WHERE last_seen_at < NOW() - make_interval(days => $1) RETURNING id`,
+        [days],
+      );
+      const asks = await db.query(
+        `DELETE FROM ${s}.ask_log WHERE created_at < NOW() - make_interval(days => $1) RETURNING id`,
+        [days],
+      );
+      return { learners: learners.rows.length, asks: asks.rows.length };
     },
 
     async ping(): Promise<number> {
@@ -212,6 +261,15 @@ export function createRepo(db: Queryable, schema: string) {
       await db.query('SELECT 1');
       return Date.now() - t0;
     },
+  };
+}
+
+function toLearner(r: Record<string, unknown>): Learner {
+  return {
+    id: r.id as string,
+    org: r.org as string,
+    nickname: (r.nickname as string | null) ?? null,
+    leaderboardOptIn: Boolean(r.leaderboard_opt_in),
   };
 }
 

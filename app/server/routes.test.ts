@@ -10,24 +10,28 @@ import { registerRoutes, type RoutesContext } from './routes.js';
 const config = loadConfig();
 const questions = loadQuestions();
 const ADMIN = config.program.adminEmails[0];
-// The shipped config has certificates switched off; these tests exercise the feature when enabled.
-const certConfig = { ...config, program: { ...config.program, certificate: { ...config.program.certificate, enabled: true } } };
+const CODE = 'ABCD-EFGH-JKMN-PQRS';
+const learner = { id: 'l-1', org: 'Acme', nickname: 'Pat', leaderboardOptIn: true };
+const withCode = { 'x-learner-code': CODE };
 
 function fakeRepo(over: Partial<Record<keyof Repo, unknown>> = {}): Repo {
   const base = {
-    upsertPartner: vi.fn((p: unknown) => Promise.resolve(p)),
+    register: vi.fn((org: string, nickname: string | null) => Promise.resolve({ learner: { ...learner, org, nickname }, code: CODE })),
+    authenticate: vi.fn((code?: string) => Promise.resolve(code === CODE ? learner : null)),
     getProgress: vi.fn(() => Promise.resolve({})),
     recordAttempt: vi.fn(() => Promise.resolve()),
     setLab: vi.fn(() => Promise.resolve()),
     getLabs: vi.fn(() => Promise.resolve({})),
     logAsk: vi.fn(() => Promise.resolve()),
-    listPartners: vi.fn(() => Promise.resolve([])),
+    listLearners: vi.fn(() => Promise.resolve([])),
     allProgress: vi.fn(() => Promise.resolve([])),
     recentAsks: vi.fn(() => Promise.resolve([])),
     setLeaderboardOptIn: vi.fn(() => Promise.resolve(true)),
-    issueCertificate: vi.fn(() => Promise.resolve({ id: '11111111-1111-4111-8111-111111111111', issuedAt: '2026-01-01T00:00:00.000Z' })),
-    getCertificate: vi.fn(() => Promise.resolve(null)),
     deleteProgress: vi.fn(() => Promise.resolve()),
+    requestErasure: vi.fn(() => Promise.resolve()),
+    hasPendingRequest: vi.fn(() => Promise.resolve(false)),
+    listRequests: vi.fn(() => Promise.resolve([])),
+    erase: vi.fn(() => Promise.resolve(true)),
     ping: vi.fn(() => Promise.resolve(3)),
   };
   return { ...base, ...over } as unknown as Repo;
@@ -74,8 +78,8 @@ async function start(ctxOver: Partial<RoutesContext> = {}) {
 }
 
 const allModules = (score: number) =>
-  config.modules.map((m) => ({ email: 'p@x.co', moduleKey: m.key, score, attempts: 1, answers: {} }));
-const partnerRow = { email: 'p@x.co', name: 'Pat Partner', org: 'Acme', createdAt: '2026-01-01', lastSeenAt: '2026-01-02', leaderboardOptIn: true };
+  config.modules.map((m) => ({ learnerId: 'l-1', moduleKey: m.key, score, attempts: 1, answers: {} }));
+const learnerRow = { id: 'l-1', org: 'Acme', nickname: 'Pat', createdAt: '2026-01-01', lastSeenAt: '2026-01-02', leaderboardOptIn: true };
 
 describe('public content and config', () => {
   let t: Awaited<ReturnType<typeof start>>;
@@ -87,7 +91,8 @@ describe('public content and config', () => {
     expect(r.status).toBe(200);
     expect(r.text).not.toContain(ADMIN);
     expect(r.json.program.adminEmails).toBeUndefined();
-    expect(r.json.program.certificate.enabled).toBeDefined();
+    expect(r.json.privacy).toEqual({ retentionDays: config.privacy.retentionDays });
+    expect(r.text).not.toContain('migrateLegacy');
     // Internal Field Kit details stay server-side.
     expect(r.json.fieldkit).toEqual({ enabled: config.fieldkit.enabled });
     for (const reason of Object.values(config.fieldkit.heldSlides)) expect(r.text).not.toContain(reason);
@@ -127,21 +132,24 @@ describe('grading', () => {
   const qs = questions.filter((q) => q.moduleKey === mod);
   const allRight = qs.map((q) => ({ questionId: q.id, answer: q.correctAnswer }));
 
-  test('scores correctly and records the attempt for a known partner', async () => {
+  test('scores correctly and records the attempt only for a recognised learner', async () => {
     const repo = fakeRepo();
     const t = await start({ repo });
-    const r = await t.call('POST', '/api/quiz/grade', { email: 'p@x.co', moduleKey: mod, answers: allRight });
+    const r = await t.call('POST', '/api/quiz/grade', { moduleKey: mod, answers: allRight }, withCode);
     expect(r.json).toMatchObject({ score: 100, correct: qs.length, total: qs.length });
+    expect(repo.recordAttempt).toHaveBeenCalledWith('l-1', mod, expect.objectContaining({ score: 100 }));
+    const anon = await t.call('POST', '/api/quiz/grade', { moduleKey: mod, answers: [] });
+    expect(anon.json.score).toBe(0);
+    const wrongCode = await t.call('POST', '/api/quiz/grade', { moduleKey: mod, answers: allRight }, { 'x-learner-code': 'ZZZZ-ZZZZ-ZZZZ-ZZZZ' });
+    expect(wrongCode.status).toBe(200);
     expect(repo.recordAttempt).toHaveBeenCalledOnce();
-    const none = await t.call('POST', '/api/quiz/grade', { moduleKey: mod, answers: [] });
-    expect(none.json.score).toBe(0);
     await t.close();
   });
 
   test('a database failure never blocks feedback to the learner', async () => {
     const repo = fakeRepo({ recordAttempt: vi.fn(() => Promise.reject(new Error('db down'))) });
     const t = await start({ repo });
-    const r = await t.call('POST', '/api/quiz/grade', { email: 'p@x.co', moduleKey: mod, answers: allRight });
+    const r = await t.call('POST', '/api/quiz/grade', { moduleKey: mod, answers: allRight }, withCode);
     expect(r.status).toBe(200);
     expect(r.json.score).toBe(100);
     await t.close();
@@ -155,10 +163,10 @@ describe('grading', () => {
   });
 });
 
-describe('graceful degradation without Lakebase', () => {
-  test('persistence routes answer 503 with the reason; status reports offline', async () => {
+describe('learner sign-up and sign-in', () => {
+  test('degrades with the reason when Lakebase is unavailable', async () => {
     const t = await start({ repo: null, dbError: 'Not initialised' });
-    const p = await t.call('POST', '/api/partner', { name: 'A', email: 'a@x.co', org: 'O' });
+    const p = await t.call('POST', '/api/learner/register', { org: 'Acme' });
     expect(p.status).toBe(503);
     expect(p.json.error).toContain('Not initialised');
     expect((await t.call('GET', '/api/leaderboard')).status).toBe(503);
@@ -168,121 +176,161 @@ describe('graceful degradation without Lakebase', () => {
     await t.close();
   });
 
-  test('partner registration validates input and returns saved progress', async () => {
+  test('registers with a company only and returns the code once, with no personal data in or out', async () => {
+    const repo = fakeRepo();
+    const t = await start({ repo });
+    expect((await t.call('POST', '/api/learner/register', { org: '' })).status).toBe(400);
+    // Extra personal fields are never read or stored.
+    const ok = await t.call('POST', '/api/learner/register', { org: ' Acme ', nickname: 'Pat', email: 'pat@x.co', name: 'Pat Partner' });
+    expect(ok.status).toBe(201);
+    expect(ok.json.code).toBe(CODE);
+    expect(ok.res.headers.get('cache-control')).toBe('no-store');
+    expect(repo.register).toHaveBeenCalledWith('Acme', 'Pat');
+    expect(ok.text).not.toContain('pat@x.co');
+    expect(ok.text).not.toContain('l-1');
+    await t.close();
+  });
+
+  test('sign-ups are rate limited per client', async () => {
     const t = await start();
-    expect((await t.call('POST', '/api/partner', { name: '', email: 'bad', org: '' })).status).toBe(400);
-    const ok = await t.call('POST', '/api/partner', { name: 'Pat', email: 'pat@x.co', org: 'Acme' });
-    expect(ok.status).toBe(200);
-    expect(ok.json.progress).toEqual({});
+    let last = 201;
+    for (let i = 0; i < 31; i++) last = (await t.call('POST', '/api/learner/register', { org: 'Acme' }, { 'x-forwarded-for': '203.0.113.9' })).status;
+    expect(last).toBe(429);
+    await t.close();
+  });
+
+  test('a valid code resumes progress; a missing or wrong one is 401', async () => {
+    const repo = fakeRepo({ hasPendingRequest: vi.fn(() => Promise.resolve(true)) });
+    const t = await start({ repo });
+    const me = await t.call('GET', '/api/learner/me', undefined, withCode);
+    expect(me.status).toBe(200);
+    expect(me.json).toMatchObject({ learner: { org: 'Acme', nickname: 'Pat' }, progress: {}, pendingErasure: true });
+    expect(me.json.learner.id).toBeUndefined();
+    expect((await t.call('GET', '/api/learner/me')).status).toBe(401);
+    expect((await t.call('GET', '/api/learner/me', undefined, { 'x-learner-code': 'ZZZZ-ZZZZ-ZZZZ-ZZZZ' })).status).toBe(401);
+    await t.close();
+  });
+
+  test('resetting progress needs the learner code (no anonymous delete)', async () => {
+    const repo = fakeRepo();
+    const t = await start({ repo });
+    expect((await t.call('DELETE', '/api/progress')).status).toBe(401);
+    expect((await t.call('DELETE', '/api/progress?email=victim@x.co')).status).toBe(401);
+    expect(repo.deleteProgress).not.toHaveBeenCalled();
+    expect((await t.call('DELETE', '/api/progress', undefined, withCode)).status).toBe(204);
+    expect(repo.deleteProgress).toHaveBeenCalledWith('l-1');
+    await t.close();
+  });
+});
+
+describe('deletion requests', () => {
+  const adminHeaders = { 'x-forwarded-email': ADMIN };
+
+  test('a learner files a request with their code; it is idempotent and reports pending', async () => {
+    const repo = fakeRepo();
+    const t = await start({ repo });
+    expect((await t.call('POST', '/api/data-request')).status).toBe(401);
+    const r = await t.call('POST', '/api/data-request', undefined, withCode);
+    expect(r.status).toBe(202);
+    expect(repo.requestErasure).toHaveBeenCalledWith(learner);
+    expect((await t.call('GET', '/api/data-request', undefined, withCode)).json).toEqual({ pending: false });
+    await t.close();
+  });
+
+  test('only an allow-listed admin can erase, by request id', async () => {
+    const repo = fakeRepo();
+    const t = await start({ repo });
+    expect((await t.call('POST', '/api/admin/data-requests/7/erase')).status).toBe(403);
+    expect((await t.call('POST', '/api/admin/data-requests/7/erase', undefined, withCode)).status).toBe(403);
+    expect(repo.erase).not.toHaveBeenCalled();
+    expect((await t.call('POST', '/api/admin/data-requests/abc/erase', undefined, adminHeaders)).status).toBe(400);
+    const ok = await t.call('POST', '/api/admin/data-requests/7/erase', undefined, adminHeaders);
+    expect(ok.json).toEqual({ erased: true });
+    expect(repo.erase).toHaveBeenCalledWith(7, ADMIN);
+    await t.close();
+  });
+
+  test('erasing an unknown or already-closed request is a 404', async () => {
+    const t = await start({ repo: fakeRepo({ erase: vi.fn(() => Promise.resolve(false)) }) });
+    expect((await t.call('POST', '/api/admin/data-requests/9/erase', undefined, { 'x-forwarded-email': ADMIN })).status).toBe(404);
     await t.close();
   });
 });
 
 describe('admin access', () => {
   let t: Awaited<ReturnType<typeof start>>;
-  beforeAll(async () => (t = await start({ config: certConfig, repo: fakeRepo({ listPartners: vi.fn(() => Promise.resolve([partnerRow])), allProgress: vi.fn(() => Promise.resolve(allModules(90))) }) })));
+  beforeAll(
+    async () =>
+      (t = await start({
+        repo: fakeRepo({
+          listLearners: vi.fn(() => Promise.resolve([learnerRow])),
+          allProgress: vi.fn(() => Promise.resolve(allModules(90))),
+          listRequests: vi.fn(() => Promise.resolve([{ id: 1, learnerId: 'l-1', org: 'Acme', status: 'pending', requestedAt: '2026-01-03T00:00:00.000Z', completedAt: null, completedBy: null }])),
+        }),
+      })),
+  );
   afterAll(() => t.close());
 
   test('requires the platform-injected identity to be on the allow-list', async () => {
     expect((await t.call('GET', '/api/admin/summary')).status).toBe(403);
     expect((await t.call('GET', '/api/admin/summary', undefined, { 'x-forwarded-email': 'someone@else.com' })).status).toBe(403);
-    expect((await t.call('GET', '/api/admin/partners.csv')).status).toBe(403);
+    expect((await t.call('GET', '/api/admin/organizations.csv')).status).toBe(403);
     expect((await t.call('GET', '/api/admin/me')).json.admin).toBe(false);
   });
 
-  test('allow-listed admins get the summary and a CSV export', async () => {
+  test('admins get progress by company and deletion requests, with no names or emails', async () => {
     const h = { 'x-forwarded-email': ADMIN.toUpperCase() };
     expect((await t.call('GET', '/api/admin/me', undefined, h)).json.admin).toBe(true);
     const s = await t.call('GET', '/api/admin/summary', undefined, h);
     expect(s.status).toBe(200);
-    expect(s.json.totals.partners).toBe(1);
-    expect(s.json.totals.certified).toBe(1);
-    const csv = await t.call('GET', '/api/admin/partners.csv', undefined, h);
+    expect(s.json.totals).toMatchObject({ learners: 1, organizations: 1, completed: 1 });
+    expect(s.json.organizations[0]).toMatchObject({ org: 'Acme', learners: 1, started: 1, completed: 1 });
+    expect(s.json.requests[0]).toMatchObject({ id: 1, status: 'pending' });
+    expect(s.json.partners).toBeUndefined();
+    expect(s.text).not.toContain('Pat');
+    const csv = await t.call('GET', '/api/admin/organizations.csv', undefined, h);
     expect(csv.res.headers.get('content-type')).toContain('text/csv');
-    expect(csv.text.split('\n')[0]).toBe('name,email,organization,modules_completed,overall_score,level,certified,last_seen');
-    expect(csv.text).toContain('pat@x.co'.replace('pat', 'p'));
+    expect(csv.text.split('\n')[0]).toBe('organization,learners,started,completed,avg_modules_done,avg_overall,level,last_active');
+    expect(csv.text).toContain('Acme,1,1,1');
+    expect(csv.text).not.toContain('l-1');
+    expect((await t.call('GET', '/api/admin/partners.csv', undefined, h)).status).toBe(404);
   });
 });
 
 describe('leaderboard', () => {
-  test('shows only first name + last initial and flags the caller', async () => {
+  test('shows only the self-chosen nickname and company, and flags the caller', async () => {
     const repo = fakeRepo({
-      listPartners: vi.fn(() => Promise.resolve([partnerRow])),
-      allProgress: vi.fn(() => Promise.resolve(allModules(80))),
+      listLearners: vi.fn(() => Promise.resolve([learnerRow, { ...learnerRow, id: 'l-2', nickname: null }])),
+      allProgress: vi.fn(() => Promise.resolve([...allModules(80), ...allModules(70).map((p) => ({ ...p, learnerId: 'l-2' }))])),
     });
     const t = await start({ repo });
-    const r = await t.call('GET', '/api/leaderboard?email=p@x.co');
-    expect(r.json.entries[0]).toMatchObject({ rank: 1, name: 'Pat P.', org: 'Acme', isMe: true });
-    expect(r.text).not.toContain('Partner"');
-    expect(r.text).not.toContain('p@x.co');
+    const r = await t.call('GET', '/api/leaderboard', undefined, withCode);
+    expect(r.json.entries[0]).toMatchObject({ rank: 1, name: 'Pat', org: 'Acme', isMe: true });
+    expect(r.json.entries[1]).toMatchObject({ name: 'Anonymous learner', isMe: false });
+    expect(r.text).not.toContain('l-1');
     expect(r.json.optedIn).toBe(true);
-    expect((await t.call('PUT', '/api/leaderboard/opt-in', { email: 'bad', optIn: true })).status).toBe(400);
-    expect((await t.call('PUT', '/api/leaderboard/opt-in', { email: 'p@x.co', optIn: false })).status).toBe(200);
+    const anon = await t.call('GET', '/api/leaderboard');
+    expect(anon.json.optedIn).toBe(false);
+    expect(anon.json.entries.every((e: { isMe: boolean }) => !e.isMe)).toBe(true);
     await t.close();
   });
 
-  test('opt-in for an unknown partner is a 404', async () => {
-    const t = await start({ repo: fakeRepo({ setLeaderboardOptIn: vi.fn(() => Promise.resolve(false)) }) });
-    expect((await t.call('PUT', '/api/leaderboard/opt-in', { email: 'x@x.co', optIn: true })).status).toBe(404);
+  test('opt-in needs the learner code and saves the nickname', async () => {
+    const repo = fakeRepo();
+    const t = await start({ repo });
+    expect((await t.call('PUT', '/api/leaderboard/opt-in', { optIn: true })).status).toBe(401);
+    expect((await t.call('PUT', '/api/leaderboard/opt-in', { optIn: 'yes' }, withCode)).status).toBe(400);
+    expect((await t.call('PUT', '/api/leaderboard/opt-in', { optIn: true, nickname: 'Rocket' }, withCode)).status).toBe(200);
+    expect(repo.setLeaderboardOptIn).toHaveBeenCalledWith('l-1', true, 'Rocket');
     await t.close();
   });
 });
 
-describe('certificates', () => {
-  test('are unavailable when switched off in config', async () => {
+describe('certificates are gone', () => {
+  test('the old certificate endpoints no longer exist', async () => {
     const t = await start();
-    expect(config.program.certificate.enabled).toBe(false);
-    expect((await t.call('POST', '/api/certificate', { email: 'p@x.co' })).status).toBe(400);
-    await t.close();
-  });
-
-  test('refuses ineligible partners with reasons, and does not issue', async () => {
-    const repo = fakeRepo({
-      listPartners: vi.fn(() => Promise.resolve([partnerRow])),
-      allProgress: vi.fn(() => Promise.resolve(allModules(90).slice(0, 2))),
-    });
-    const t = await start({ config: certConfig, repo });
-    const r = await t.call('POST', '/api/certificate', { email: 'p@x.co' });
-    expect(r.status).toBe(409);
-    expect(r.json.reasons.join(' ')).toMatch(/remaining modules/);
-    expect(repo.issueCertificate).not.toHaveBeenCalled();
-    await t.close();
-  });
-
-  test('issues for eligible partners using server-side scores', async () => {
-    const repo = fakeRepo({
-      listPartners: vi.fn(() => Promise.resolve([partnerRow])),
-      allProgress: vi.fn(() => Promise.resolve(allModules(95))),
-    });
-    const t = await start({ config: certConfig, repo });
-    const r = await t.call('POST', '/api/certificate', { email: 'P@X.co' });
-    expect(r.status).toBe(200);
-    expect(r.json).toMatchObject({ name: 'Pat Partner', overall: 95, title: config.program.certificate.title });
-    expect(repo.issueCertificate).toHaveBeenCalledWith('p@x.co', 95, expect.any(String));
-    expect((await t.call('POST', '/api/certificate', { email: 'ghost@x.co' })).status).toBe(404);
-    await t.close();
-  });
-
-  test('verification rejects malformed ids without touching the database', async () => {
-    const repo = fakeRepo();
-    const t = await start({ config: certConfig, repo });
-    expect((await t.call('GET', '/api/certificate/verify/not-a-uuid')).status).toBe(404);
-    expect((await t.call('GET', "/api/certificate/verify/1' OR '1'='1")).status).toBe(404);
-    expect(repo.getCertificate).not.toHaveBeenCalled();
+    expect((await t.call('POST', '/api/certificate', { email: 'p@x.co' })).status).toBe(404);
     expect((await t.call('GET', '/api/certificate/verify/11111111-1111-4111-8111-111111111111')).status).toBe(404);
-    await t.close();
-  });
-
-  test('verification returns public details only', async () => {
-    const repo = fakeRepo({
-      getCertificate: vi.fn(() =>
-        Promise.resolve({ id: '11111111-1111-4111-8111-111111111111', name: 'Pat Partner', org: 'Acme', overall: 95, level: 'Expert', issuedAt: '2026-01-01T00:00:00.000Z' }),
-      ),
-    });
-    const t = await start({ config: certConfig, repo });
-    const r = await t.call('GET', '/api/certificate/verify/11111111-1111-4111-8111-111111111111');
-    expect(r.json).toMatchObject({ valid: true, name: 'Pat Partner', level: 'Expert' });
-    expect(r.text).not.toContain('@');
     await t.close();
   });
 });
@@ -294,15 +342,18 @@ describe('labs', () => {
   test('keeps only valid, unique, sorted steps and reports completion', async () => {
     const repo = fakeRepo();
     const t = await start({ repo });
+    const put = (body: unknown) => t.call('PUT', '/api/labs', body, withCode);
     const all = Array.from({ length: total }, (_, i) => i);
-    const r = await t.call('PUT', '/api/labs', { email: 'p@x.co', moduleKey: mod, steps: [...all, 0, 99, total] });
+    const r = await put({ moduleKey: mod, steps: [...all, 0, 99, total] });
     expect(r.json).toEqual({ status: 'completed', steps: all });
-    expect(repo.setLab).toHaveBeenCalledWith('p@x.co'.toLowerCase(), mod, all, total);
-    expect((await t.call('PUT', '/api/labs', { email: 'p@x.co', moduleKey: mod, steps: [0] })).json.status).toBe('in-progress');
-    expect((await t.call('PUT', '/api/labs', { email: 'p@x.co', moduleKey: mod, steps: [999] })).status).toBe(400);
-    expect((await t.call('PUT', '/api/labs', { email: 'p@x.co', moduleKey: mod, steps: [-1] })).status).toBe(400);
-    expect((await t.call('PUT', '/api/labs', { email: 'p@x.co', moduleKey: 'nope', steps: [0] })).status).toBe(400);
-    expect((await t.call('GET', '/api/labs')).status).toBe(400);
+    expect(repo.setLab).toHaveBeenCalledWith('l-1', mod, all, total);
+    expect((await put({ moduleKey: mod, steps: [0] })).json.status).toBe('in-progress');
+    expect((await put({ moduleKey: mod, steps: [999] })).status).toBe(400);
+    expect((await put({ moduleKey: mod, steps: [-1] })).status).toBe(400);
+    expect((await put({ moduleKey: 'nope', steps: [0] })).status).toBe(400);
+    expect((await t.call('PUT', '/api/labs', { moduleKey: mod, steps: [0] })).status).toBe(401);
+    expect((await t.call('GET', '/api/labs')).status).toBe(401);
+    expect((await t.call('GET', '/api/labs', undefined, withCode)).status).toBe(200);
     await t.close();
   });
 });
@@ -313,12 +364,12 @@ describe('AI routes', () => {
     const t = await start({ repo });
     expect((await t.call('POST', '/api/ask', { question: 'hi' })).status).toBe(400);
     expect((await t.call('POST', '/api/ask', { question: 'x'.repeat(501) })).status).toBe(400);
-    const r = await t.call('POST', '/api/ask', { question: 'How does scale to zero work?', email: 'p@x.co' });
+    const r = await t.call('POST', '/api/ask', { question: 'How does scale to zero work?' }, withCode);
     expect(r.json).toMatchObject({ answer: 'LLM ANSWER', mode: 'vector', citations: [{ n: 1, title: 'T' }] });
     const prompt = (t.llm.mock.calls[0] as unknown as [unknown, { messages: { content: string }[] }])[1].messages[0].content;
     expect(prompt).toContain('Question: How does scale to zero work?');
     expect(prompt).toContain('[1] T');
-    expect(repo.logAsk).toHaveBeenCalledOnce();
+    expect(repo.logAsk).toHaveBeenCalledWith('l-1', 'How does scale to zero work?', 'LLM ANSWER', 'vector', expect.anything());
     await t.close();
   });
 

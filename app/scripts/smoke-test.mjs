@@ -5,7 +5,7 @@
  *
  *   databricks bundle run smoke_test -t <TARGET> -p <PROFILE>
  *   databricks bundle run smoke_test -t <TARGET> -p <PROFILE> --var smoke_write=true   # also signs up a throw-away
- *                                                                partner, grades a quiz, then clears its progress
+ *                                                                learner, grades a quiz, then erases it
  *
  * Exit code is non-zero if any check fails, so it can gate a release.
  */
@@ -34,10 +34,10 @@ const check = async (name, fn) => {
     console.log(`  FAIL  ${name} — ${err.message}`);
   }
 };
-const http = async (method, path, body) => {
+const http = async (method, path, body, extraHeaders = {}) => {
   const res = await fetch(url + path, {
     method,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...extraHeaders },
     body: body === undefined ? undefined : JSON.stringify(body),
     redirect: 'manual',
   });
@@ -101,9 +101,21 @@ await check('Field Kit serves cleared slides only', async () => {
   must(pdf.status === 200 && !pdf.text.startsWith('<'), `selected-slides PDF not deployed (HTTP ${pdf.status})`);
   return `${nums.length} slides`;
 });
-await check('certificate verification rejects bad ids', async () => {
-  const r = await http('GET', '/api/certificate/verify/not-a-uuid');
-  must(r.status === 404, `HTTP ${r.status}`);
+await check('learner endpoints reject a missing or wrong code (no anonymous delete)', async () => {
+  for (const [method, path] of [
+    ['GET', '/api/learner/me'],
+    ['DELETE', '/api/progress'],
+    ['POST', '/api/data-request'],
+  ]) {
+    const none = await http(method, path);
+    must(none.status === 401, `${method} ${path} without a code: HTTP ${none.status}`);
+    const bad = await http(method, path, undefined, { 'x-learner-code': 'ZZZZ-ZZZZ-ZZZZ-ZZZZ' });
+    must(bad.status === 401, `${method} ${path} with a wrong code: HTTP ${bad.status}`);
+  }
+});
+await check('no certificate or email-based endpoints remain', async () => {
+  must((await http('GET', '/api/certificate/verify/not-a-uuid')).status !== 200, 'certificate endpoint still served');
+  must((await http('GET', '/api/admin/partners.csv')).status !== 200, 'partner CSV still served');
 });
 await check('admin endpoints are protected from non-admins', async () => {
   const r = await http('GET', '/api/admin/summary');
@@ -113,21 +125,33 @@ await check('admin endpoints are protected from non-admins', async () => {
 });
 
 if (write) {
-  const email = 'smoke-test@example.invalid';
-  await check('partner sign-up persists', async () => {
-    const r = await http('POST', '/api/partner', { name: 'Smoke Test', email, org: 'Smoke Test Org' });
-    must(r.status === 200, `HTTP ${r.status}: ${r.text.slice(0, 120)}`);
+  const org = 'Smoke Test Org';
+  let code = '';
+  await check('sign-up returns a learner code and stores no personal data', async () => {
+    const r = await http('POST', '/api/learner/register', { org });
+    must(r.status === 201 && /^[A-Z2-9]{4}(-[A-Z2-9]{4}){3}$/.test(r.json?.code ?? ''), `HTTP ${r.status}: ${r.text.slice(0, 120)}`);
+    code = r.json.code;
   });
+  const auth = () => ({ 'x-learner-code': code });
   await check('quiz grading saves progress', async () => {
     const mod = config.modules[0].key;
-    const g = await http('POST', '/api/quiz/grade', { email, moduleKey: mod, answers: [] });
+    const g = await http('POST', '/api/quiz/grade', { moduleKey: mod, answers: [] }, auth());
     must(g.status === 200 && g.json.score === 0, `HTTP ${g.status}`);
-    const p = await http('POST', '/api/partner', { name: 'Smoke Test', email, org: 'Smoke Test Org' });
+    const p = await http('GET', '/api/learner/me', undefined, auth());
     must(p.json?.progress?.[mod]?.attempted === true, 'progress was not saved to Lakebase');
   });
-  await check('cleanup', async () => {
-    const r = await http('DELETE', `/api/progress?email=${encodeURIComponent(email)}`);
-    must(r.status === 204, `HTTP ${r.status}`);
+  await check('deletion request reaches the admin and erasure removes the learner', async () => {
+    const req = await http('POST', '/api/data-request', undefined, auth());
+    must(req.status === 202, `request: HTTP ${req.status}`);
+    const sum = await http('GET', '/api/admin/summary');
+    if (sum.status !== 200) return 'request filed; you are not an admin, so it stays pending for the program admin';
+    const row = sum.json.requests.find((r) => r.status === 'pending' && r.org === org);
+    must(row, 'pending request not visible to the admin');
+    const del = await http('POST', `/api/admin/data-requests/${row.id}/erase`);
+    must(del.status === 200, `erase: HTTP ${del.status}`);
+    const after = await http('GET', '/api/learner/me', undefined, auth());
+    must(after.status === 401, `learner still exists after erasure: HTTP ${after.status}`);
+    return 'filed, approved and erased';
   });
 }
 
