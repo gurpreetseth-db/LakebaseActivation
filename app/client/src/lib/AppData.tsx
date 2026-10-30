@@ -1,22 +1,34 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { fetchConfig, fetchIsAdmin, fetchLakebaseStatus, fetchModules, fetchQuestions, registerPartner, resetRemoteProgress } from './api';
-import { loadPartner, loadProgress, savePartner, saveModuleProgress, resetAll } from './storage';
-import type { AppConfig, LakebaseStatus, ModulesContent, Question, Partner, Progress, ModuleProgress } from './types';
+import {
+  UnknownCodeError,
+  fetchConfig,
+  fetchIsAdmin,
+  fetchLakebaseStatus,
+  fetchLearner,
+  fetchModules,
+  fetchQuestions,
+  resetRemoteProgress,
+} from './api';
+import { loadCode, loadLearner, loadProgress, resetAll, resetProgressLocal, saveCode, saveLearner, saveModuleProgress } from './storage';
+import type { AppConfig, LakebaseStatus, Learner, ModulesContent, Question, Progress, ModuleProgress } from './types';
 
 interface AppDataValue {
   config: AppConfig;
   modules: ModulesContent;
   questions: Question[];
-  partner: Partner | null;
+  learner: Learner | null;
   progress: Progress;
   lakebase: LakebaseStatus | null;
   isAdmin: boolean;
-  setPartner: (p: Partner) => void;
+  /** Why the learner was signed out automatically (e.g. their data expired), if it happened. */
+  notice: string;
+  /** Starts a session. `code` is null when the server is unavailable and progress stays on this browser. */
+  signIn: (learner: Learner, code: string | null, progress?: Progress) => void;
   recordModule: (moduleKey: string, result: ModuleProgress) => void;
-  /** Forget this browser's profile. Saved results in Lakebase are kept and return on sign-in. */
+  /** Forget this browser's profile and learner code. Saved results stay on the server until the code is used again. */
   signOut: () => void;
-  /** Permanently delete the partner's saved module results from Lakebase, then sign out. */
-  reset: () => void;
+  /** Delete the learner's saved module results (here and in Lakebase). The learner stays signed in. */
+  resetProgress: () => void;
 }
 
 const AppDataContext = createContext<AppDataValue | null>(null);
@@ -29,21 +41,34 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [modules, setModules] = useState<ModulesContent | null>(null);
   const [questions, setQuestions] = useState<Question[] | null>(null);
-  const [partner, setPartnerState] = useState<Partner | null>(() => loadPartner());
+  const [learner, setLearner] = useState<Learner | null>(() => loadLearner());
+  const [notice, setNotice] = useState('');
   const [progress, setProgress] = useState<Progress>(() => loadProgress());
   const [lakebase, setLakebase] = useState<LakebaseStatus | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Pull saved progress from Lakebase for a known partner. Server data wins over
-  // the browser cache; any failure silently keeps the local copy.
-  const syncRemote = (p: Partner) => {
-    registerPartner(p)
-      .then(({ progress: remote }) => {
-        const merged = { ...loadProgress(), ...remote };
+  // Pull saved progress from Lakebase for a signed-in learner. Server data wins over the browser cache;
+  // a network failure keeps the local copy, but a code the server no longer knows signs the learner out.
+  const syncRemote = () => {
+    if (!loadCode()) return;
+    fetchLearner()
+      .then(({ learner: remote, progress: saved }) => {
+        saveLearner(remote);
+        setLearner(remote);
+        const merged = { ...loadProgress(), ...saved };
         Object.entries(merged).forEach(([k, v]) => saveModuleProgress(k, v));
         setProgress(merged);
       })
-      .catch(() => undefined)
+      .catch((err: Error) => {
+        if (err instanceof UnknownCodeError) {
+          resetAll();
+          setLearner(null);
+          setProgress({});
+          setNotice(
+            'Your learner code is no longer recognised. Learner data is deleted after a period of inactivity or when an erasure request is approved. Sign up again, or enter a different code.',
+          );
+        }
+      })
       .finally(() => {
         fetchLakebaseStatus().then(setLakebase).catch(() => undefined);
       });
@@ -52,8 +77,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchLakebaseStatus().then(setLakebase).catch(() => undefined);
     fetchIsAdmin().then(setIsAdmin).catch(() => undefined);
-    const stored = loadPartner();
-    if (stored) syncRemote(stored);
+    syncRemote();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -100,27 +124,31 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     config,
     modules,
     questions,
-    partner,
+    learner,
     progress,
     lakebase,
     isAdmin,
-    setPartner: (p) => {
-      savePartner(p);
-      setPartnerState(p);
-      syncRemote(p);
+    notice,
+    signIn: (l, code, saved) => {
+      saveLearner(l);
+      if (code) saveCode(code);
+      const merged = { ...loadProgress(), ...(saved ?? {}) };
+      Object.entries(merged).forEach(([k, v]) => saveModuleProgress(k, v));
+      setProgress(merged);
+      setNotice('');
+      setLearner(l);
     },
     recordModule: (moduleKey, result) => {
       setProgress({ ...saveModuleProgress(moduleKey, result) });
     },
     signOut: () => {
       resetAll();
-      setPartnerState(null);
+      setLearner(null);
       setProgress({});
     },
-    reset: () => {
-      if (partner?.email) resetRemoteProgress(partner.email).catch(() => undefined);
-      resetAll();
-      setPartnerState(null);
+    resetProgress: () => {
+      resetRemoteProgress().catch(() => undefined);
+      resetProgressLocal();
       setProgress({});
     },
   };

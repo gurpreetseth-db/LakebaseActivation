@@ -20,7 +20,7 @@ const ACCENTS = [
 ];
 
 export function Dashboard() {
-  const { config, partner, progress } = useAppData();
+  const { config, learner, progress } = useAppData();
   const modules = sortedModules(config);
   const overall = overallScore(config, progress);
   const level = levelForScore(config, overall);
@@ -38,7 +38,7 @@ export function Dashboard() {
         <div className="relative grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
           <div className="space-y-3">
             <p className="text-sm font-medium text-white/70">
-              {partner?.name ? `Welcome back, ${partner.name.split(' ')[0]}` : 'Your Lakebase readiness'}
+              {learner ? `Welcome back, ${learner.nickname || learner.org}` : 'Your Lakebase readiness'}
             </p>
             <h1 className="text-2xl font-bold text-white md:text-3xl">{config.branding.tagline}</h1>
             <div className="flex flex-wrap items-center gap-3 pt-1">

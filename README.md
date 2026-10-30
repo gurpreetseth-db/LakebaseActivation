@@ -52,6 +52,8 @@ app/             the app's source root (uploaded and built on deploy)
 | `lakebase_endpoint` | Endpoint id (the deployed app gets it from the `postgres` resource) |
 | `lakebase_schema` | Postgres schema the app owns; created on first start (lowercase letters, digits, underscores) |
 | `admin_emails` | Comma-separated emails that see the Admin tab (never sent to the browser) |
+| `retention_days` | Days of inactivity after which a learner (and any Ask Lakebase question older than this) is deleted automatically; default `30` |
+| `pii_migrate` | One-time `true` to convert a database that still stores emails/names (see [Privacy](#privacy-and-gdpr)); keep `false` otherwise |
 | `ai_endpoint_name` | Chat/LLM serving endpoint for the assistant |
 | `ai_embedding_endpoint` | Embedding serving endpoint; the app is granted `CAN_QUERY` on it (without it the assistant uses keyword search) |
 | `lakehouse_sync_catalog`, `lakehouse_sync_schema`, `lakehouse_sync_cdf_config_id` | Optional Lakehouse Sync target |
@@ -126,14 +128,14 @@ the app in a space, add `space: <name>` to `resources.apps.lakebase_partner_hub`
 
 ```bash
 databricks bundle run smoke_test -t default -p <PROFILE>               # read-only checks
-databricks bundle run smoke_test -t default -p <PROFILE> --var smoke_write=true   # also signs up a throw-away partner
+databricks bundle run smoke_test -t default -p <PROFILE> --var smoke_write=true   # also signs up a throw-away learner, files and approves its erasure
 ```
 
 Checks: app running, `postgres` bound, config hides the admin list, answers not exposed, Lakebase connected,
 knowledge base indexed (and whether search is semantic or keyword), content endpoints, Field Kit serves cleared slides
-only, certificate verification rejects bad ids, admin endpoints protected. `smoke_write=true` creates
-`smoke-test@example.invalid`, grades a quiz, and clears its progress; the partner row itself remains and counts in admin
-totals.
+only, learner endpoints reject a missing or wrong code, admin endpoints protected. `smoke_write=true` signs up a
+throw-away learner, grades a quiz, files a deletion request and (if you are an admin) approves it, so nothing is left
+behind; for a non-admin the request stays pending in the Admin tab.
 
 ## Optional: Lakehouse Sync
 
@@ -145,8 +147,9 @@ databricks bundle run enable_lakehouse_sync -t default -p <PROFILE>             
 databricks bundle run enable_lakehouse_sync -t default -p <PROFILE> --var lakehouse_sync_apply=true   # create the CDF config
 ```
 
-The CDF config is immutable and replicates **every** table, including partner names and emails, so review who can
-read the target schema first. Sample queries: `docs/lakehouse-analytics.sql`.
+The CDF config is immutable and replicates **every** table, including learner ids, companies and nicknames (no names or emails are stored), so review who can
+read the target schema first. Rows erased in Postgres remain in the history tables until you delete them there too, so
+note this in your erasure process. Sample queries: `docs/lakehouse-analytics.sql`.
 
 ## Troubleshooting
 
@@ -156,6 +159,41 @@ read the target schema first. Sample queries: `docs/lakehouse-analytics.sql`.
 | App fails to start with `Deployment settings missing or invalid` | A variable is empty or malformed; run `databricks bundle validate -o json` and check `resources.apps.*.config.env` |
 | `bundle deploy` says the app already exists | Bind it first (see [Adopting an app that already exists](#adopting-an-app-that-already-exists)) |
 | Cannot attach the `postgres` resource | The app is in a restricted space; deploy outside it (see Prerequisites) |
+
+## Privacy and GDPR
+
+The app stores as little personal data as it can.
+
+- **Collected:** the learner's company, an optional nickname, quiz and lab results, and the questions they ask Ask
+  Lakebase. **Not collected:** name, email, or anything else that identifies a person directly.
+- **Identity:** at sign-up the learner gets a random **learner code** (shown once). The database keeps only a
+  one-way hash of it, plus a random learner id. The code is the only credential: it resumes progress on another device
+  and authorises the learner's own requests. It cannot be recovered; a lost code means starting again.
+- **Admin view:** progress by **company** (learners, started, finished, average score). Individuals are never named.
+  The CSV export is also per company.
+- **Retention:** learners with no activity for `retention_days` (default 30) and Ask Lakebase questions older than that
+  are deleted automatically (daily, and at startup). Only counts are logged.
+- **Deletion requests:** a learner can use **Privacy and my data → Request deletion**. The request appears in the
+  **Admin** tab; **Erase** removes the learner and all linked data (results, attempts, labs, questions) in one
+  transaction. The request row stays as the erasure record (pseudonymous id, company, dates, approving admin) and holds
+  no personal data. Because no name or email is held, a request can only be matched through the learner's own code.
+- **Downstream copies:** erased rows can remain in the Lakebase point-in-time history window and, if Lakehouse Sync is
+  enabled, in the `lb_*_history` tables. Include both in your erasure process.
+- **Your side:** the lawful basis, privacy notice wording, retention period and processor agreements are for your
+  privacy team to confirm. This README is not legal advice.
+
+### Upgrading a database that still stores emails
+
+Deploying this version against a schema created before it stops with a clear error and the app runs in browser-only
+mode. To convert it **in place** (existing learners get new random ids, can no longer sign in, and must start again with
+a new code; emails, names and certificates are dropped, irreversibly), take a Lakebase branch or backup first, then:
+
+```bash
+databricks bundle deploy -t default -p <PROFILE> --var pii_migrate=true
+databricks bundle run lakebase_partner_hub -t default -p <PROFILE> --var pii_migrate=true
+databricks bundle deploy -t default -p <PROFILE>        # back to the default (false)
+databricks bundle run lakebase_partner_hub -t default -p <PROFILE>
+```
 
 ## Data collection
 

@@ -13,6 +13,20 @@ import { registerTracker } from './tracker.js';
 // environment (exported by the bundle from the databricks.yml variables). The serving plugin reads
 // its endpoint from DATABRICKS_SERVING_ENDPOINT_NAME, so bridge the configured name into it.
 const config = loadConfig();
+
+// Data minimisation: inactive learners and old Ask log rows are deleted. Runs at startup and daily;
+// only counts are logged, never content.
+function startRetention(repo: Repo, retentionDays: number): void {
+  const run = () =>
+    repo
+      .purgeExpired(retentionDays)
+      .then((n) => {
+        if (n.learners || n.asks) console.log(`[retention] purged ${n.learners} learner(s), ${n.asks} ask-log row(s)`);
+      })
+      .catch((err: Error) => console.error(`[retention] purge failed: ${err.message}`));
+  void run();
+  setInterval(() => void run(), 24 * 3_600_000).unref();
+}
 process.env.DATABRICKS_SERVING_ENDPOINT_NAME = config.ai.endpointName;
 
 await createApp({
@@ -25,9 +39,10 @@ await createApp({
     if (config.lakebase.enabled) {
       try {
         const db = appkit.lakebase;
-        await ensureSchema(db, config.lakebase.schema);
+        await ensureSchema(db, config.lakebase.schema, { migrateLegacy: config.privacy.migrateLegacy });
         repo = createRepo(db, config.lakebase.schema);
         dbError = '';
+        startRetention(repo, config.privacy.retentionDays);
       } catch (err) {
         dbError = (err as Error).message;
         console.error(`[lakebase] schema init failed: ${dbError}`);

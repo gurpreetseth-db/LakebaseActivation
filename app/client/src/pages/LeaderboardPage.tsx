@@ -4,27 +4,30 @@ import { Alert, AlertDescription, AlertTitle, Badge, Button, Card, CardContent, 
 import { ArrowLeft, Trophy } from 'lucide-react';
 import { useAppData } from '@/lib/AppData';
 import { fetchLeaderboard, setLeaderboardOptIn } from '@/lib/api';
+import { loadCode } from '@/lib/storage';
 import type { LeaderboardResponse } from '@/lib/types';
 
 export function LeaderboardPage() {
-  const { config, partner } = useAppData();
+  const { config, learner } = useAppData();
   const [data, setData] = useState<LeaderboardResponse | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [nickname, setNickname] = useState(learner?.nickname ?? '');
+  const signedIn = Boolean(loadCode());
 
   const load = useCallback(() => {
-    fetchLeaderboard(partner?.email)
+    fetchLeaderboard()
       .then(setData)
       .catch((e: Error) => setError(e.message));
-  }, [partner?.email]);
+  }, []);
 
   useEffect(load, [load]);
 
   const toggle = async () => {
-    if (!partner || !data) return;
+    if (!signedIn || !data) return;
     setSaving(true);
     try {
-      await setLeaderboardOptIn(partner.email, !data.optedIn);
+      await setLeaderboardOptIn(!data.optedIn, nickname.trim());
       load();
     } catch (e) {
       setError((e as Error).message);
@@ -46,8 +49,8 @@ export function LeaderboardPage() {
           <Trophy className="h-6 w-6" /> Leaderboard
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Top {config.program.leaderboard.topN} partners by weighted readiness. Only partners who opt in appear, shown as first
-          name, last initial and organization.
+          Top {config.program.leaderboard.topN} partners by weighted readiness. Only learners who opt in appear, shown by a nickname
+          of their choice and their company. No real names are stored.
         </p>
       </div>
 
@@ -65,7 +68,17 @@ export function LeaderboardPage() {
               <span className="text-muted-foreground">
                 {data.optedIn ? 'You are visible on the leaderboard.' : 'You are hidden from the leaderboard.'}
               </span>
-              <Button size="sm" variant={data.optedIn ? 'secondary' : 'default'} disabled={saving} onClick={() => void toggle()}>
+              {!data.optedIn ? (
+                <input
+                  aria-label="Nickname"
+                  className="h-8 w-44 rounded-md border bg-background px-2 text-sm"
+                  placeholder="Nickname (optional)"
+                  maxLength={40}
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                />
+              ) : null}
+              <Button size="sm" variant={data.optedIn ? 'secondary' : 'default'} disabled={saving || !signedIn} onClick={() => void toggle()}>
                 {data.optedIn ? 'Hide me' : 'Show me on the leaderboard'}
               </Button>
             </CardContent>

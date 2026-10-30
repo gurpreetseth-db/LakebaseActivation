@@ -1,17 +1,18 @@
 import type { AppConfig, Question } from '../content/loader.js';
-import { certificateEligibility, overallScore, type ScoreMap } from './scoring.js';
+import { levelLabel, overallScore, type ScoreMap } from './scoring.js';
 
-export interface PartnerRecord {
-  email: string;
-  name: string;
+/** A learner as the admin sees them: pseudonymous (random id), never a name or email. */
+export interface LearnerRecord {
+  id: string;
   org: string;
+  nickname: string | null;
   createdAt: string;
   lastSeenAt: string;
   leaderboardOptIn: boolean;
 }
 
 export interface ProgressRecord {
-  email: string;
+  learnerId: string;
   moduleKey: string;
   score: number;
   attempts: number;
@@ -24,12 +25,12 @@ export function isAdmin(email: string | undefined, admins: string[]): boolean {
   return admins.some((a) => a.trim().toLowerCase() === e);
 }
 
-export function scoresByEmail(progress: ProgressRecord[]): Map<string, ScoreMap> {
+export function scoresByLearner(progress: ProgressRecord[]): Map<string, ScoreMap> {
   const out = new Map<string, ScoreMap>();
   for (const p of progress) {
-    const m = out.get(p.email) ?? {};
+    const m = out.get(p.learnerId) ?? {};
     m[p.moduleKey] = p.score;
-    out.set(p.email, m);
+    out.set(p.learnerId, m);
   }
   return out;
 }
@@ -37,26 +38,42 @@ export function scoresByEmail(progress: ProgressRecord[]): Map<string, ScoreMap>
 export function summarize(input: {
   config: AppConfig;
   questions: Question[];
-  partners: PartnerRecord[];
+  learners: LearnerRecord[];
   progress: ProgressRecord[];
 }) {
-  const { config, questions, partners, progress } = input;
-  const byEmail = scoresByEmail(progress);
+  const { config, questions, learners, progress } = input;
+  const byLearner = scoresByLearner(progress);
+  const moduleCount = config.modules.length;
 
-  const rows = partners.map((p) => {
-    const scores = byEmail.get(p.email) ?? {};
-    const elig = certificateEligibility(config, scores);
-    return {
-      name: p.name,
-      email: p.email,
-      org: p.org,
-      modulesDone: Object.keys(scores).length,
-      overall: elig.overall,
-      level: elig.level,
-      certified: config.program.certificate.enabled && elig.eligible,
-      lastSeenAt: p.lastSeenAt,
-    };
-  });
+  // Per company: how many learners, how many started, how many finished every module, and how far along.
+  const orgMap = new Map<string, { org: string; learners: LearnerRecord[] }>();
+  for (const l of learners) {
+    const key = l.org.trim().toLowerCase();
+    const entry = orgMap.get(key) ?? { org: l.org.trim(), learners: [] };
+    entry.learners.push(l);
+    orgMap.set(key, entry);
+  }
+  const organizations = [...orgMap.values()]
+    .map(({ org, learners: ls }) => {
+      const scored = ls.map((l) => ({ l, scores: byLearner.get(l.id) ?? {} }));
+      const started = scored.filter((x) => Object.keys(x.scores).length > 0);
+      const completed = started.filter((x) => Object.keys(x.scores).length >= moduleCount);
+      const overalls = started.map((x) => overallScore(config, x.scores));
+      const avgOverall = overalls.length ? Math.round(overalls.reduce((a, b) => a + b, 0) / overalls.length) : 0;
+      return {
+        org,
+        learners: ls.length,
+        started: started.length,
+        completed: completed.length,
+        avgModulesDone: started.length
+          ? Math.round((started.reduce((sum, x) => sum + Object.keys(x.scores).length, 0) / started.length) * 10) / 10
+          : 0,
+        avgOverall,
+        level: levelLabel(config, avgOverall),
+        lastActiveAt: ls.map((l) => l.lastSeenAt).sort().reverse()[0] ?? '',
+      };
+    })
+    .sort((a, b) => b.completed - a.completed || b.started - a.started || a.org.localeCompare(b.org));
 
   const modules = config.modules.map((m) => {
     const rowsFor = progress.filter((p) => p.moduleKey === m.key);
@@ -93,28 +110,35 @@ export function summarize(input: {
     .sort((a, b) => (a.accuracy as number) - (b.accuracy as number) || b.asked - a.asked)
     .slice(0, 10);
 
-  const orgs = new Set(partners.map((p) => p.org.trim().toLowerCase()));
-  const overallScores = rows.filter((r) => r.modulesDone > 0).map((r) => r.overall);
+  const overallScores = learners
+    .filter((l) => byLearner.has(l.id))
+    .map((l) => overallScore(config, byLearner.get(l.id)!));
 
   return {
     totals: {
-      partners: partners.length,
-      organizations: orgs.size,
-      active: rows.filter((r) => r.modulesDone > 0).length,
+      learners: learners.length,
+      organizations: organizations.length,
+      active: overallScores.length,
+      completed: organizations.reduce((sum, o) => sum + o.completed, 0),
       avgOverall: overallScores.length ? Math.round(overallScores.reduce((a, b) => a + b, 0) / overallScores.length) : 0,
-      certified: rows.filter((r) => r.certified).length,
     },
     modules,
     hardestQuestions: hardest,
-    partners: rows.sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name)),
+    organizations,
   };
 }
 
-export function leaderboard(config: AppConfig, partners: PartnerRecord[], progress: ProgressRecord[]) {
-  const byEmail = scoresByEmail(progress);
-  return partners
-    .filter((p) => p.leaderboardOptIn && byEmail.has(p.email))
-    .map((p) => ({ email: p.email, name: p.name, org: p.org, overall: overallScore(config, byEmail.get(p.email)!) }))
+/** Opted-in learners only, shown by self-chosen nickname (never a real name) and company. */
+export function leaderboard(config: AppConfig, learners: LearnerRecord[], progress: ProgressRecord[]) {
+  const byLearner = scoresByLearner(progress);
+  return learners
+    .filter((l) => l.leaderboardOptIn && byLearner.has(l.id))
+    .map((l) => ({
+      id: l.id,
+      name: l.nickname?.trim() || 'Anonymous learner',
+      org: l.org,
+      overall: overallScore(config, byLearner.get(l.id)!),
+    }))
     .sort((a, b) => b.overall - a.overall || a.name.localeCompare(b.name));
 }
 

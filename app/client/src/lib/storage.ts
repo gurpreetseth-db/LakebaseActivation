@@ -1,21 +1,41 @@
-// Client-side persistence (v1). Phase 3 can swap these for Lakebase-backed API
-// calls without changing the components, which only talk to these helpers.
-import type { Partner, Progress, ModuleProgress } from './types';
+// Client-side persistence. The browser keeps the learner's company/nickname, their learner code (the only
+// credential) and a cache of results; there is no name or email.
+import type { Learner, Progress, ModuleProgress } from './types';
 
-const PARTNER_KEY = 'lbpr.partner';
+const LEARNER_KEY = 'lbpr.learner';
+const CODE_KEY = 'lbpr.code';
 const PROGRESS_KEY = 'lbpr.progress';
 
-export function loadPartner(): Partner | null {
+// Earlier versions stored name and email here; remove them as soon as this build runs.
+try {
+  localStorage.removeItem('lbpr.partner');
+} catch {
+  /* storage unavailable */
+}
+
+export function loadLearner(): Learner | null {
   try {
-    const raw = localStorage.getItem(PARTNER_KEY);
-    return raw ? (JSON.parse(raw) as Partner) : null;
+    const raw = localStorage.getItem(LEARNER_KEY);
+    return raw ? (JSON.parse(raw) as Learner) : null;
   } catch {
     return null;
   }
 }
 
-export function savePartner(partner: Partner): void {
-  localStorage.setItem(PARTNER_KEY, JSON.stringify(partner));
+export function saveLearner(learner: Learner): void {
+  localStorage.setItem(LEARNER_KEY, JSON.stringify(learner));
+}
+
+export function loadCode(): string | null {
+  try {
+    return localStorage.getItem(CODE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function saveCode(code: string): void {
+  localStorage.setItem(CODE_KEY, code);
 }
 
 export function loadProgress(): Progress {
@@ -51,8 +71,15 @@ export function saveLabLocal(moduleKey: string, steps: number[]): void {
   localStorage.setItem(LABS_KEY, JSON.stringify(all));
 }
 
-export function resetAll(): void {
+/** Clears cached results only (the learner stays signed in). */
+export function resetProgressLocal(): void {
   localStorage.removeItem(LABS_KEY);
-  localStorage.removeItem(PARTNER_KEY);
   localStorage.removeItem(PROGRESS_KEY);
+}
+
+/** Forgets everything on this device, including the learner code. */
+export function resetAll(): void {
+  resetProgressLocal();
+  localStorage.removeItem(LEARNER_KEY);
+  localStorage.removeItem(CODE_KEY);
 }

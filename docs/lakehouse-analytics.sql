@@ -7,7 +7,7 @@
 -- Latest state per learner and module (drop deletes and pre-images)
 CREATE OR REPLACE VIEW <catalog>.<schema>.v_module_progress_latest AS
 SELECT * EXCEPT (rn) FROM (
-  SELECT *, ROW_NUMBER() OVER (PARTITION BY email, module_key ORDER BY _pg_lsn DESC) AS rn
+  SELECT *, ROW_NUMBER() OVER (PARTITION BY learner_id, module_key ORDER BY _pg_lsn DESC) AS rn
   FROM <catalog>.<schema>.lb_module_progress_history
   WHERE _pg_change_type IN ('insert', 'update_postimage', 'delete')
 ) WHERE rn = 1 AND _pg_change_type <> 'delete';

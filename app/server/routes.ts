@@ -12,27 +12,23 @@ import {
 } from './content/loader.js';
 import { evaluateFit } from './content/fit.js';
 import { loadPublicFieldkit } from './content/fieldkit.js';
-import type { Repo } from './db/repo.js';
+import type { Learner, Repo } from './db/repo.js';
 import { buildAskPrompt, citationsFor, docLinksFor } from './knowledge/rag.js';
 import { resolveDoc } from './knowledge/chunks.js';
 import type { Hit, SearchMode } from './knowledge/store.js';
-import { isAdmin, leaderboard, scoresByEmail, summarize, toCsv } from './program/admin.js';
-import { certificateEligibility, displayName } from './program/scoring.js';
+import { isAdmin, leaderboard, summarize, toCsv } from './program/admin.js';
 
-const partnerRequestSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  email: z.string().trim().email().max(320),
+const registerRequestSchema = z.object({
   org: z.string().trim().min(1).max(200),
+  nickname: z.string().trim().max(40).optional(),
 });
 
 const gradeRequestSchema = z.object({
-  email: z.string().trim().email().max(320).optional(),
   moduleKey: z.string(),
   answers: z.array(z.object({ questionId: z.string(), answer: z.string() })),
 });
 
 const labRequestSchema = z.object({
-  email: z.string().trim().email().max(320),
   moduleKey: z.string(),
   steps: z.array(z.number().int().min(0).max(100)).max(100),
 });
@@ -42,9 +38,7 @@ const explainRequestSchema = z.object({
   given: z.string(),
 });
 
-const optInSchema = z.object({ email: z.string().trim().email().max(320), optIn: z.boolean() });
-const certRequestSchema = z.object({ email: z.string().trim().email().max(320) });
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const optInSchema = z.object({ optIn: z.boolean(), nickname: z.string().trim().max(40).optional() });
 
 // Admin identity is the platform-injected x-forwarded-email (set by the Apps
 // proxy, not by the visitor). Local dev can opt in with DEV_ADMIN_EMAIL.
@@ -56,7 +50,6 @@ function viewerEmail(req: { header: (n: string) => string | undefined }): string
 
 const askRequestSchema = z.object({
   question: z.string().trim().min(3).max(500),
-  email: z.string().trim().email().max(320).optional(),
 });
 
 const fitRequestSchema = z.object({ answers: z.record(z.string(), z.string()) });
@@ -103,6 +96,62 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
     return repo;
   };
 
+  // The learner code (x-learner-code header) is the only credential. It resolves to a learner id
+  // server-side; the id and code never leave the database in clear.
+  type HeaderReq = { header: (n: string) => string | undefined };
+  const learnerOf = async (req: HeaderReq): Promise<Learner | null> => {
+    if (!repo) return null;
+    try {
+      return await repo.authenticate(req.header('x-learner-code'));
+    } catch {
+      return null;
+    }
+  };
+  const requireLearner = async (
+    req: HeaderReq,
+    res: { status: (c: number) => { json: (b: unknown) => void } },
+  ): Promise<Learner | null> => {
+    if (!requireRepo(res)) return null;
+    const learner = await learnerOf(req);
+    if (!learner) res.status(401).json({ error: 'Learner code missing or not recognised' });
+    return learner;
+  };
+  const publicLearner = (l: Learner) => ({ org: l.org, nickname: l.nickname, leaderboardOptIn: l.leaderboardOptIn });
+
+  // Sign-ups are anonymous, so cap them to stop someone flooding the database. The key is the LAST
+  // x-forwarded-for hop, which the platform proxy appends; earlier hops are client-supplied and forgeable.
+  const SIGNUPS_PER_CLIENT = 30;
+  // A backstop far above real demand; the per-client limit is the main control. Hitting it is logged.
+  const SIGNUPS_GLOBAL = 2000;
+  const SIGNUP_WINDOW_MS = 3_600_000;
+  const MAX_TRACKED_CLIENTS = 10_000;
+  const signups = new Map<string, { count: number; resetAt: number }>();
+  let globalSignups = { count: 0, resetAt: 0 };
+  const clientKey = (req: HeaderReq & { ip?: string }): string => {
+    const hops = (req.header('x-forwarded-for') ?? '').split(',').map((h) => h.trim()).filter(Boolean);
+    return hops[hops.length - 1] || req.ip || 'unknown';
+  };
+  const signupAllowed = (key: string): boolean => {
+    const now = Date.now();
+    if (globalSignups.resetAt < now) globalSignups = { count: 0, resetAt: now + SIGNUP_WINDOW_MS };
+    if (globalSignups.count >= SIGNUPS_GLOBAL) {
+      if (globalSignups.count === SIGNUPS_GLOBAL) console.warn('[signup] global hourly sign-up ceiling reached; refusing new sign-ups');
+      globalSignups.count += 1;
+      return false;
+    }
+    // Keep the map bounded: drop expired entries once it grows, and refuse new clients if it is still full.
+    if (signups.size >= MAX_TRACKED_CLIENTS) {
+      for (const [k, v] of signups) if (v.resetAt < now) signups.delete(k);
+      if (signups.size >= MAX_TRACKED_CLIENTS && !signups.has(key)) return false;
+    }
+    const e = signups.get(key);
+    if (!e || e.resetAt < now) signups.set(key, { count: 1, resetAt: now + SIGNUP_WINDOW_MS });
+    else if (e.count >= SIGNUPS_PER_CLIENT) return false;
+    else e.count += 1;
+    globalSignups.count += 1;
+    return true;
+  };
+
   // --- Lakebase connection status (target comes from config, never secrets) ---
   app.get('/api/lakebase/status', async (_req, res) => {
     const { enabled, project, branch, database, schema } = config.lakebase;
@@ -118,35 +167,67 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
     }
   });
 
-  // --- Register / sign in a partner by email and return saved progress ---
-  app.post('/api/partner', async (req, res) => {
-    const parsed = partnerRequestSchema.safeParse(req.body);
+  // --- Sign up: company (+ optional nickname) in, learner code out. The code is shown once. ---
+  app.post('/api/learner/register', async (req, res) => {
+    const parsed = registerRequestSchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({ error: 'Invalid partner details' });
+      res.status(400).json({ error: 'Please enter your company' });
       return;
     }
     const r = requireRepo(res);
     if (!r) return;
+    if (!signupAllowed(clientKey(req))) {
+      res.status(429).json({ error: 'Too many sign-ups from this network; try again later' });
+      return;
+    }
     try {
-      const partner = await r.upsertPartner(parsed.data);
-      res.json({ partner, progress: await r.getProgress(partner.email) });
+      const { learner, code } = await r.register(parsed.data.org, parsed.data.nickname ?? null);
+      res.set('Cache-Control', 'no-store').status(201).json({ learner: publicLearner(learner), code, progress: {} });
     } catch (err) {
-      res.status(500).json({ error: `Could not save partner: ${(err as Error).message}` });
+      res.status(500).json({ error: `Could not sign up: ${(err as Error).message}` });
     }
   });
 
-  // --- Reset a partner's saved progress ---
-  app.delete('/api/progress', async (req, res) => {
-    const email = z.string().email().safeParse(req.query.email);
-    if (!email.success) {
-      res.status(400).json({ error: 'email query parameter required' });
-      return;
-    }
-    const r = requireRepo(res);
-    if (!r) return;
+  // --- Resume with a learner code: profile, saved progress and whether a deletion is pending ---
+  app.get('/api/learner/me', async (req, res) => {
+    const learner = await requireLearner(req, res);
+    if (!learner || !repo) return;
     try {
-      await r.deleteProgress(email.data);
+      const [progress, pendingErasure] = await Promise.all([repo.getProgress(learner.id), repo.hasPendingRequest(learner.id)]);
+      res.set('Cache-Control', 'no-store').json({ learner: publicLearner(learner), progress, pendingErasure });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // --- Reset the learner's own saved results (the learner record stays) ---
+  app.delete('/api/progress', async (req, res) => {
+    const learner = await requireLearner(req, res);
+    if (!learner || !repo) return;
+    try {
+      await repo.deleteProgress(learner.id);
       res.status(204).send();
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // --- Ask the admin to erase everything held about this learner (GDPR erasure request) ---
+  app.get('/api/data-request', async (req, res) => {
+    const learner = await requireLearner(req, res);
+    if (!learner || !repo) return;
+    try {
+      res.json({ pending: await repo.hasPendingRequest(learner.id) });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+  app.post('/api/data-request', async (req, res) => {
+    const learner = await requireLearner(req, res);
+    if (!learner || !repo) return;
+    try {
+      await repo.requestErasure(learner);
+      res.status(202).json({ pending: true });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -155,10 +236,15 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
   // --- Single config (non-secret; safe to send to the browser) ---
   app.get('/api/config', (_req, res) => {
     // The admin allow-list is server-only.
-    const { program, fieldkit, ...rest } = loadConfig();
+    const { program, fieldkit, privacy, ...rest } = loadConfig();
     const { adminEmails: _admins, ...publicProgram } = program;
     // Deck id and held-slide reasons are internal; the browser only needs to know the tab exists.
-    res.json({ ...rest, program: publicProgram, fieldkit: { enabled: fieldkit.enabled } });
+    res.json({
+      ...rest,
+      program: publicProgram,
+      fieldkit: { enabled: fieldkit.enabled },
+      privacy: { retentionDays: privacy.retentionDays },
+    });
   });
 
   // --- Admin: cohort progress, weak topics, exports (allow-listed platform identity) ---
@@ -178,34 +264,62 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
     const r = requireRepo(res);
     if (!r) return;
     try {
-      const [partners, progress, asks] = await Promise.all([r.listPartners(), r.allProgress(), r.recentAsks(20)]);
-      res.json({ ...summarize({ config, questions: loadQuestions(), partners, progress }), recentQuestions: asks });
+      const [learners, progress, asks, requests] = await Promise.all([
+        r.listLearners(),
+        r.allProgress(),
+        r.recentAsks(20),
+        r.listRequests(),
+      ]);
+      res.json({
+        ...summarize({ config, questions: loadQuestions(), learners, progress }),
+        recentQuestions: asks,
+        requests,
+      });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
   });
-  app.get('/api/admin/partners.csv', async (req, res) => {
+  // Progress by company only: no individual rows leave the system.
+  app.get('/api/admin/organizations.csv', async (req, res) => {
     if (!adminOnly(req, res)) return;
     const r = requireRepo(res);
     if (!r) return;
     try {
-      const [partners, progress] = await Promise.all([r.listPartners(), r.allProgress()]);
-      const s = summarize({ config, questions: loadQuestions(), partners, progress });
+      const [learners, progress] = await Promise.all([r.listLearners(), r.allProgress()]);
+      const s = summarize({ config, questions: loadQuestions(), learners, progress });
       res
         .type('text/csv')
-        .set('Content-Disposition', 'attachment; filename="partners.csv"')
+        .set('Content-Disposition', 'attachment; filename="organizations.csv"')
         .send(
           toCsv(
-            ['name', 'email', 'organization', 'modules_completed', 'overall_score', 'level', 'certified', 'last_seen'],
-            s.partners.map((p) => [p.name, p.email, p.org, p.modulesDone, p.overall, p.level, p.certified, p.lastSeenAt]),
+            ['organization', 'learners', 'started', 'completed', 'avg_modules_done', 'avg_overall', 'level', 'last_active'],
+            s.organizations.map((o) => [o.org, o.learners, o.started, o.completed, o.avgModulesDone, o.avgOverall, o.level, o.lastActiveAt]),
           ),
         );
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
   });
+  // Approve a deletion request: removes the learner and everything linked to them, keeps an erasure record.
+  app.post('/api/admin/data-requests/:id/erase', async (req, res) => {
+    if (!adminOnly(req, res)) return;
+    const id = Number(req.params.id);
+    const admin = viewerEmail(req);
+    if (!Number.isInteger(id) || id < 1 || !admin) {
+      res.status(400).json({ error: 'Invalid request id' });
+      return;
+    }
+    const r = requireRepo(res);
+    if (!r) return;
+    try {
+      const erased = await r.erase(id, admin);
+      res.status(erased ? 200 : 404).json(erased ? { erased: true } : { error: 'No pending request with that id' });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
 
-  // --- Leaderboard (opt-in only; first name + last initial + organization) ---
+  // --- Leaderboard (opt-in only; self-chosen nickname + company) ---
   app.get('/api/leaderboard', async (req, res) => {
     if (!config.program.leaderboard.enabled) {
       res.status(404).json({ error: 'Leaderboard is disabled' });
@@ -214,93 +328,31 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
     const r = requireRepo(res);
     if (!r) return;
     try {
-      const [partners, progress] = await Promise.all([r.listPartners(), r.allProgress()]);
-      const ranked = leaderboard(config, partners, progress);
-      const me = z.string().email().safeParse(req.query.email);
-      const myEmail = me.success ? me.data.trim().toLowerCase() : null;
+      const [learners, progress, me] = await Promise.all([r.listLearners(), r.allProgress(), learnerOf(req)]);
+      const ranked = leaderboard(config, learners, progress);
       const entries = ranked.slice(0, config.program.leaderboard.topN).map((e, i) => ({
         rank: i + 1,
-        name: displayName(e.name),
+        name: e.name,
         org: e.org,
         overall: e.overall,
-        isMe: e.email === myEmail,
+        isMe: e.id === me?.id,
       }));
-      const mine = partners.find((p) => p.email === myEmail);
-      res.json({ entries, optedIn: Boolean(mine?.leaderboardOptIn), total: ranked.length });
+      res.json({ entries, optedIn: Boolean(me?.leaderboardOptIn), total: ranked.length });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
   });
   app.put('/api/leaderboard/opt-in', async (req, res) => {
+    const learner = await requireLearner(req, res);
+    if (!learner || !repo) return;
     const parsed = optInSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: 'Invalid request' });
       return;
     }
-    const r = requireRepo(res);
-    if (!r) return;
     try {
-      const ok = await r.setLeaderboardOptIn(parsed.data.email, parsed.data.optIn);
-      res.status(ok ? 200 : 404).json(ok ? { optIn: parsed.data.optIn } : { error: 'Partner not found' });
-    } catch (err) {
-      res.status(500).json({ error: (err as Error).message });
-    }
-  });
-
-  // --- Certificate: eligibility is decided on the server from saved scores ---
-  app.post('/api/certificate', async (req, res) => {
-    const cert = config.program.certificate;
-    const parsed = certRequestSchema.safeParse(req.body);
-    if (!cert.enabled || !parsed.success) {
-      res.status(400).json({ error: 'Certificates are unavailable or the request is invalid' });
-      return;
-    }
-    const r = requireRepo(res);
-    if (!r) return;
-    try {
-      const email = parsed.data.email.trim().toLowerCase();
-      const partner = (await r.listPartners()).find((p) => p.email === email);
-      if (!partner) {
-        res.status(404).json({ error: 'Partner not found' });
-        return;
-      }
-      const scores = scoresByEmail(await r.allProgress()).get(email) ?? {};
-      const elig = certificateEligibility(config, scores);
-      if (!elig.eligible) {
-        res.status(409).json({ error: 'Not yet eligible', reasons: elig.reasons, overall: elig.overall });
-        return;
-      }
-      const issued = await r.issueCertificate(email, elig.overall, elig.level);
-      res.json({
-        id: issued.id,
-        name: partner.name,
-        org: partner.org,
-        overall: elig.overall,
-        level: elig.level,
-        issuedAt: issued.issuedAt,
-        title: cert.title,
-        issuer: cert.issuer,
-        signatory: cert.signatory,
-      });
-    } catch (err) {
-      res.status(500).json({ error: (err as Error).message });
-    }
-  });
-  app.get('/api/certificate/verify/:id', async (req, res) => {
-    if (!UUID.test(req.params.id)) {
-      res.status(404).json({ valid: false });
-      return;
-    }
-    const r = requireRepo(res);
-    if (!r) return;
-    try {
-      const c = await r.getCertificate(req.params.id);
-      if (!c) {
-        res.status(404).json({ valid: false });
-        return;
-      }
-      const cert = config.program.certificate;
-      res.json({ valid: true, ...c, title: cert.title, issuer: cert.issuer });
+      await repo.setLeaderboardOptIn(learner.id, parsed.data.optIn, parsed.data.nickname);
+      res.json({ optIn: parsed.data.optIn });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
@@ -317,7 +369,8 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
       res.status(400).json({ error: 'Ask a question of 3 to 500 characters' });
       return;
     }
-    const { question, email } = parsed.data;
+    const { question } = parsed.data;
+    const learner = await learnerOf(req);
     try {
       const { mode, hits } = await ctx.knowledge.retrieve(question, config.ai.retrievalTopK);
       const response = await ctx.invokeLlm(req, {
@@ -328,7 +381,7 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
       const answer = extractContent(response);
       const citations = citationsFor(hits);
       if (repo) {
-        repo.logAsk(email ?? null, question, answer, mode, citations).catch((e: Error) => {
+        repo.logAsk(learner?.id ?? null, question, answer, mode, citations).catch((e: Error) => {
           console.error(`[lakebase] could not log question: ${e.message}`);
         });
       }
@@ -404,31 +457,26 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
 
   // --- Lab progress (self-attested; stored per partner) ---
   app.get('/api/labs', async (req, res) => {
-    const email = z.string().email().safeParse(req.query.email);
-    if (!email.success) {
-      res.status(400).json({ error: 'email query parameter required' });
-      return;
-    }
-    const r = requireRepo(res);
-    if (!r) return;
+    const learner = await requireLearner(req, res);
+    if (!learner || !repo) return;
     try {
-      res.json({ labs: await r.getLabs(email.data) });
+      res.json({ labs: await repo.getLabs(learner.id) });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
   });
   app.put('/api/labs', async (req, res) => {
+    const learner = await requireLearner(req, res);
+    if (!learner || !repo) return;
     const parsed = labRequestSchema.safeParse(req.body);
     const total = parsed.success ? loadModules().modules[parsed.data.moduleKey]?.lab.steps.length : undefined;
     if (!parsed.success || total === undefined) {
       res.status(400).json({ error: 'Invalid lab update' });
       return;
     }
-    const r = requireRepo(res);
-    if (!r) return;
     try {
       const steps = [...new Set(parsed.data.steps.filter((n) => n < total))].sort((a, b) => a - b);
-      await r.setLab(parsed.data.email, parsed.data.moduleKey, steps, total);
+      await repo.setLab(learner.id, parsed.data.moduleKey, steps, total);
       res.json({ status: steps.length >= total ? 'completed' : 'in-progress', steps });
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
@@ -453,7 +501,7 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
       res.status(400).json({ error: 'Invalid grade request' });
       return;
     }
-    const { email, moduleKey, answers } = parsed.data;
+    const { moduleKey, answers } = parsed.data;
     const moduleQuestions = loadQuestions().filter((q) => q.moduleKey === moduleKey);
     if (moduleQuestions.length === 0) {
       res.status(404).json({ error: `Unknown module: ${moduleKey}` });
@@ -472,10 +520,11 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
     });
     const correctCount = results.filter((r) => r.correct).length;
     const score = Math.round((correctCount / moduleQuestions.length) * 100);
-    if (repo && email) {
+    const learner = await learnerOf(req);
+    if (repo && learner) {
       // Persistence must never block feedback to the learner.
       try {
-        await repo.recordAttempt(email, moduleKey, {
+        await repo.recordAttempt(learner.id, moduleKey, {
           score,
           correct: correctCount,
           total: moduleQuestions.length,
