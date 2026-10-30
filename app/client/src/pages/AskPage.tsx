@@ -32,7 +32,7 @@ const SUGGESTIONS = [
 ];
 
 export function AskPage() {
-  const { partner, config } = useAppData();
+  const { config } = useAppData();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -60,7 +60,7 @@ export function AskPage() {
     setBusy(true);
     setTurns((t) => [...t, { question: q }]);
     try {
-      const answer = await askLakebase(q, partner?.email);
+      const answer = await askLakebase(q);
       setTurns((t) => t.map((x, i) => (i === t.length - 1 ? { ...x, answer } : x)));
     } catch (e) {
       setTurns((t) => t.map((x, i) => (i === t.length - 1 ? { ...x, error: (e as Error).message } : x)));

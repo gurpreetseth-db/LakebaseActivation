@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from '@databricks/appkit-ui/react';
 import {
-  Award,
   BotMessageSquare,
   ChevronDown,
   CircleDollarSign,
@@ -22,7 +21,6 @@ import {
   LogOut,
   PlayCircle,
   ShieldCheck,
-  Trash2,
   Trophy,
   type LucideIcon,
 } from 'lucide-react';
@@ -36,9 +34,8 @@ import { FitPage } from '@/pages/FitPage';
 import { AskPage } from '@/pages/AskPage';
 import { PricingPage } from '@/pages/PricingPage';
 import { AdminPage } from '@/pages/AdminPage';
-import { CertificatePage } from '@/pages/CertificatePage';
+import { PrivacyPage } from '@/pages/PrivacyPage';
 import { LeaderboardPage } from '@/pages/LeaderboardPage';
-import { VerifyPage } from '@/pages/VerifyPage';
 import { FieldKitPage } from '@/pages/FieldKitPage';
 
 interface NavItem {
@@ -65,7 +62,6 @@ function NavLinks() {
     { to: '/fit', label: 'Fit-checker', icon: ClipboardCheck },
     { to: '/pricing', label: 'Pricing', icon: CircleDollarSign },
     ...(config.program.leaderboard.enabled ? [{ to: '/leaderboard', label: 'Leaderboard', icon: Trophy }] : []),
-    ...(config.program.certificate.enabled ? [{ to: '/certificate', label: 'Certificate', icon: Award }] : []),
     { to: '/lakebase', label: 'Lakebase', icon: Database },
     ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
   ];
@@ -82,56 +78,47 @@ function NavLinks() {
   );
 }
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+function initials(label: string): string {
+  const parts = label.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 
 function UserMenu() {
-  const { partner, signOut, reset } = useAppData();
-  if (!partner) return null;
+  const { learner, signOut } = useAppData();
+  if (!learner) return null;
+  const label = learner.nickname || learner.org;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-2 rounded-full bg-white/10 py-1 pl-1 pr-2.5 text-sm text-white outline-none transition-colors hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-primary">
         <Avatar className="h-7 w-7">
-          <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
-            {initials(partner.name)}
-          </AvatarFallback>
+          <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">{initials(label)}</AvatarFallback>
         </Avatar>
-        <span className="hidden max-w-[10rem] truncate sm:inline">{partner.name}</span>
+        <span className="hidden max-w-[10rem] truncate sm:inline">{label}</span>
         <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="space-y-0.5">
-          <span className="block truncate text-sm font-semibold">{partner.name}</span>
-          <span className="block truncate text-xs font-normal text-muted-foreground">{partner.email}</span>
-          <span className="block truncate text-xs font-normal text-muted-foreground">{partner.org}</span>
+          <span className="block truncate text-sm font-semibold">{label}</span>
+          {learner.nickname ? (
+            <span className="block truncate text-xs font-normal text-muted-foreground">{learner.org}</span>
+          ) : null}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/privacy">
+            <ShieldCheck className="mr-2 h-4 w-4" />
+            <span>
+              Privacy and my data
+              <span className="block text-xs text-muted-foreground">Request deletion, reset results</span>
+            </span>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={signOut}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>
             Sign out
-            <span className="block text-xs text-muted-foreground">Your results stay saved</span>
-          </span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="text-destructive focus:text-destructive"
-          onSelect={() => {
-            if (
-              confirm(
-                'Permanently delete your saved module results?\n\nThis removes them from Lakebase too and cannot be undone. To simply leave, use “Sign out” instead.',
-              )
-            ) {
-              reset();
-            }
-          }}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          <span>
-            Delete my saved results
-            <span className="block text-xs opacity-80">Cannot be undone</span>
+            <span className="block text-xs text-muted-foreground">You&apos;ll need your learner code to return</span>
           </span>
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -194,9 +181,8 @@ const router = createBrowserRouter([
       { path: '/fieldkit', element: <FieldKitPage /> },
       { path: '/fieldkit/:section', element: <FieldKitPage /> },
       { path: '/leaderboard', element: <LeaderboardPage /> },
-      { path: '/certificate', element: <CertificatePage /> },
+      { path: '/privacy', element: <PrivacyPage /> },
       { path: '/admin', element: <AdminPage /> },
-      { path: '/verify/:id', element: <VerifyPage /> },
       { path: '/pricing', element: <PricingPage /> },
       { path: '/demo', element: <DemoPage /> },
       { path: '/fit', element: <FitPage /> },
@@ -206,10 +192,8 @@ const router = createBrowserRouter([
 ]);
 
 function Gate() {
-  const { config, partner } = useAppData();
-  // Certificate verification is public: a third party must not hit the sign-up wall.
-  const isVerify = window.location.pathname.startsWith('/verify/');
-  if (config.onboarding.enabled && !partner && !isVerify) {
+  const { config, learner } = useAppData();
+  if (config.onboarding.enabled && !learner) {
     return <Onboarding />;
   }
   return <RouterProvider router={router} />;

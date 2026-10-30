@@ -37,13 +37,13 @@ import { ModuleIcon } from '@/lib/icons';
 import { Markdown } from '@/lib/Markdown';
 import { LevelBadge } from '@/components/common';
 import { explainAnswer, fetchFieldkit, fetchLabs, gradeModule, saveLab } from '@/lib/api';
-import { loadLabsLocal, saveLabLocal } from '@/lib/storage';
+import { loadCode, loadLabsLocal, saveLabLocal } from '@/lib/storage';
 import { shuffle } from '@/lib/shuffle';
 import type { FieldkitSection, GradeResponse } from '@/lib/types';
 
 export function ModulePage() {
   const { moduleKey = '' } = useParams();
-  const { config, modules, questions, progress, partner, recordModule } = useAppData();
+  const { config, modules, questions, progress, learner, recordModule } = useAppData();
 
   const meta = config.modules.find((m) => m.key === moduleKey);
   const content = modules[moduleKey];
@@ -65,7 +65,8 @@ export function ModulePage() {
   const [labNote, setLabNote] = useState('');
   const [kitSections, setKitSections] = useState<FieldkitSection[]>([]);
 
-  const email = partner?.email;
+  // Labs sync to the server only when signed in with a learner code.
+  const synced = Boolean(learner) && Boolean(loadCode());
   useEffect(() => {
     if (!config.fieldkit.enabled) return;
     fetchFieldkit()
@@ -74,14 +75,14 @@ export function ModulePage() {
   }, [config.fieldkit.enabled, moduleKey]);
 
   useEffect(() => {
-    if (!email) return;
-    fetchLabs(email)
+    if (!synced) return;
+    fetchLabs()
       .then((labs) => {
         const remote = labs[moduleKey]?.steps;
         if (remote) setLabSteps(remote);
       })
       .catch(() => undefined);
-  }, [email, moduleKey]);
+  }, [synced, moduleKey]);
 
   const orderedQuestions = useMemo(
     () => (attempt === 0 ? moduleQuestions : shuffle(moduleQuestions, attempt * 7919 + moduleKey.length)),
@@ -107,7 +108,7 @@ export function ModulePage() {
     setGrading(true);
     setError('');
     try {
-      const result = await gradeModule(moduleKey, answers, partner?.email);
+      const result = await gradeModule(moduleKey, answers);
       setGraded(result);
       recordModule(moduleKey, {
         attempted: true,
@@ -129,7 +130,7 @@ export function ModulePage() {
     setLabSteps(next);
     saveLabLocal(moduleKey, next);
     setLabNote('');
-    if (email) saveLab(email, moduleKey, next).catch(() => setLabNote('Saved on this device only.'));
+    if (synced) saveLab(moduleKey, next).catch(() => setLabNote('Saved on this device only.'));
   };
 
   const explain = async (questionId: string, given: string) => {

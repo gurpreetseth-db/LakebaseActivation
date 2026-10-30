@@ -38,11 +38,10 @@
   "onboarding": {
     "enabled": true,
     "heading": "Welcome, partner",
-    "subheading": "Tell us who you are so we can track your progress.",
+    "subheading": "Tell us your company so we can track your progress. No name or email needed.",
     "fields": [
-      { "key": "name", "label": "Full name", "type": "text", "required": true, "placeholder": "Jordan Rivera" },
-      { "key": "email", "label": "Work email", "type": "email", "required": true, "placeholder": "jordan@partner.com" },
-      { "key": "org", "label": "Partner organization", "type": "text", "required": true, "placeholder": "Acme Data Partners" }
+      { "key": "org", "label": "Partner organization", "type": "text", "required": true, "placeholder": "Acme Data Partners" },
+      { "key": "nickname", "label": "Nickname (optional)", "type": "text", "required": false, "placeholder": "Shown only if you join the leaderboard" }
     ]
   },
 

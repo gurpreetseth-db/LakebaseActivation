@@ -20,8 +20,8 @@ export interface AppConfig {
   fieldkit: { enabled: boolean };
   program: {
     leaderboard: { enabled: boolean; topN: number };
-    certificate: { enabled: boolean; requireAllModules: boolean; title: string; issuer: string; signatory: string };
   };
+  privacy: { retentionDays: number };
   branding: { appName: string; shortName: string; tagline: string; org: string; docsBaseUrl: string };
   onboarding: {
     enabled: boolean;
@@ -159,39 +159,38 @@ export interface PricingContent {
   usageQuery: { title: string; note: string; sql: string };
 }
 
+export interface DataRequest {
+  id: number;
+  learnerId: string;
+  org: string;
+  status: string;
+  requestedAt: string;
+  completedAt: string | null;
+  completedBy: string | null;
+}
+
 export interface AdminSummary {
-  totals: { partners: number; organizations: number; active: number; avgOverall: number; certified: number };
+  totals: { learners: number; organizations: number; active: number; completed: number; avgOverall: number };
   modules: { key: string; title: string; learners: number; avgScore: number | null; passRate: number | null; retakes: number }[];
   hardestQuestions: { id: string; moduleKey: string; prompt: string; asked: number; accuracy: number | null }[];
-  partners: {
-    name: string;
-    email: string;
+  organizations: {
     org: string;
-    modulesDone: number;
-    overall: number;
+    learners: number;
+    started: number;
+    completed: number;
+    avgModulesDone: number;
+    avgOverall: number;
     level: string;
-    certified: boolean;
-    lastSeenAt: string;
+    lastActiveAt: string;
   }[];
   recentQuestions: { question: string; mode: string; createdAt: string }[];
+  requests: DataRequest[];
 }
 
 export interface LeaderboardResponse {
   entries: { rank: number; name: string; org: string; overall: number; isMe: boolean }[];
   optedIn: boolean;
   total: number;
-}
-
-export interface CertificateData {
-  id: string;
-  name: string;
-  org: string;
-  overall: number;
-  level: string;
-  issuedAt: string;
-  title: string;
-  issuer: string;
-  signatory?: string;
 }
 
 export interface FieldkitSlide {
@@ -217,10 +216,11 @@ export interface Fieldkit {
   sections: FieldkitSection[];
 }
 
-export interface Partner {
-  name: string;
-  email: string;
+/** What the browser knows about the learner: no name, no email. The code lives in storage.ts. */
+export interface Learner {
   org: string;
+  nickname: string | null;
+  leaderboardOptIn?: boolean;
 }
 
 export interface ModuleProgress {
