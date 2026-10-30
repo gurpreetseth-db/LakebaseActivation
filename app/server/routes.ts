@@ -118,17 +118,33 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
   };
   const publicLearner = (l: Learner) => ({ org: l.org, nickname: l.nickname, leaderboardOptIn: l.leaderboardOptIn });
 
-  // Sign-ups are anonymous, so cap them per client to stop someone flooding the database.
+  // Sign-ups are anonymous, so cap them to stop someone flooding the database. The key is the LAST
+  // x-forwarded-for hop, which the platform proxy appends; earlier hops are client-supplied and forgeable.
+  const SIGNUPS_PER_CLIENT = 30;
+  const SIGNUPS_GLOBAL = 300;
+  const SIGNUP_WINDOW_MS = 3_600_000;
+  const MAX_TRACKED_CLIENTS = 10_000;
   const signups = new Map<string, { count: number; resetAt: number }>();
+  let globalSignups = { count: 0, resetAt: 0 };
+  const clientKey = (req: HeaderReq & { ip?: string }): string => {
+    const hops = (req.header('x-forwarded-for') ?? '').split(',').map((h) => h.trim()).filter(Boolean);
+    return hops[hops.length - 1] || req.ip || 'unknown';
+  };
   const signupAllowed = (key: string): boolean => {
     const now = Date.now();
-    const e = signups.get(key);
-    if (!e || e.resetAt < now) {
-      signups.set(key, { count: 1, resetAt: now + 3_600_000 });
-      return true;
+    if (globalSignups.resetAt < now) globalSignups = { count: 0, resetAt: now + SIGNUP_WINDOW_MS };
+    if (globalSignups.count >= SIGNUPS_GLOBAL) return false;
+    // Keep the map bounded: drop expired entries once it grows, and refuse new clients if it is still full.
+    if (signups.size >= MAX_TRACKED_CLIENTS) {
+      for (const [k, v] of signups) if (v.resetAt < now) signups.delete(k);
+      if (signups.size >= MAX_TRACKED_CLIENTS && !signups.has(key)) return false;
     }
-    e.count += 1;
-    return e.count <= 30;
+    const e = signups.get(key);
+    if (!e || e.resetAt < now) signups.set(key, { count: 1, resetAt: now + SIGNUP_WINDOW_MS });
+    else if (e.count >= SIGNUPS_PER_CLIENT) return false;
+    else e.count += 1;
+    globalSignups.count += 1;
+    return true;
   };
 
   // --- Lakebase connection status (target comes from config, never secrets) ---
@@ -155,7 +171,7 @@ export function registerRoutes(app: Application, ctx: RoutesContext): void {
     }
     const r = requireRepo(res);
     if (!r) return;
-    if (!signupAllowed(req.header('x-forwarded-for')?.split(',')[0].trim() || req.ip || 'unknown')) {
+    if (!signupAllowed(clientKey(req))) {
       res.status(429).json({ error: 'Too many sign-ups from this network; try again later' });
       return;
     }

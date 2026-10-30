@@ -191,11 +191,15 @@ describe('learner sign-up and sign-in', () => {
     await t.close();
   });
 
-  test('sign-ups are rate limited per client', async () => {
+  test('sign-ups are rate limited per client, and a forged x-forwarded-for cannot reset the limit', async () => {
     const t = await start();
+    const signUp = (xff: string) => t.call('POST', '/api/learner/register', { org: 'Acme' }, { 'x-forwarded-for': xff });
     let last = 201;
-    for (let i = 0; i < 31; i++) last = (await t.call('POST', '/api/learner/register', { org: 'Acme' }, { 'x-forwarded-for': '203.0.113.9' })).status;
+    // The proxy appends the real client (last hop); the caller varies only the forgeable first hop.
+    for (let i = 0; i < 31; i++) last = (await signUp(`10.0.0.${i}, 203.0.113.9`)).status;
     expect(last).toBe(429);
+    // A different real client is unaffected.
+    expect((await signUp('198.51.100.7')).status).toBe(201);
     await t.close();
   });
 
