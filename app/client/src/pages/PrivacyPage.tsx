@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle, Button, Card, CardContent, CardHeader, CardTitle } from '@databricks/appkit-ui/react';
-import { ArrowLeft, LogOut, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowLeft, Copy, Eye, EyeOff, KeyRound, LogOut, ShieldCheck, Trash2 } from 'lucide-react';
 import { useAppData } from '@/lib/AppData';
 import { fetchLearner, requestErasure } from '@/lib/api';
 import { loadCode } from '@/lib/storage';
@@ -11,7 +11,10 @@ export function PrivacyPage() {
   const [pending, setPending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const hasCode = Boolean(loadCode());
+  const code = loadCode();
+  const hasCode = Boolean(code);
+  const [reveal, setReveal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!hasCode) return;
@@ -77,6 +80,47 @@ export function PrivacyPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      {code ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <KeyRound className="h-4 w-4" /> Your learner code
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Use it to continue on another device or after signing out. Keep it private: anyone with it can see your progress
+              and ask for your data to be deleted. It can&apos;t be recovered if lost.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="rounded-md border bg-muted/40 px-3 py-1.5 text-base font-semibold tracking-wider">
+                {reveal ? code : code.replace(/[A-Z0-9]/g, '\u2022')}
+              </code>
+              <Button size="sm" variant="secondary" onClick={() => setReveal((r) => !r)}>
+                {reveal ? <EyeOff className="mr-1.5 h-4 w-4" /> : <Eye className="mr-1.5 h-4 w-4" />}
+                {reveal ? 'Hide' : 'Show'}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  void navigator.clipboard
+                    ?.writeText(code)
+                    .then(() => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    })
+                    .catch(() => undefined)
+                }
+              >
+                <Copy className="mr-1.5 h-4 w-4" />
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {error ? (
         <Alert variant="destructive">

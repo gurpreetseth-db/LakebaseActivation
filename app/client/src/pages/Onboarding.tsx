@@ -127,6 +127,32 @@ export function Onboarding() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Sign up or sign in">
+              {(
+                [
+                  ['new', 'I\u2019m new here'],
+                  ['resume', 'I have a learner code'],
+                ] as const
+              ).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === m}
+                  className={`rounded-md px-3 py-2 text-sm font-bold transition-colors ${
+                    mode === m
+                      ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
+                      : 'text-foreground/80 hover:bg-background/60 hover:text-foreground'
+                  }`}
+                  onClick={() => {
+                    setMode(m);
+                    setError('');
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             {notice ? (
               <Alert>
                 <AlertTitle>Signed out</AlertTitle>
@@ -142,6 +168,13 @@ export function Onboarding() {
 
             {mode === 'new' ? (
               <>
+                <Alert>
+                  <AlertTitle>Been here before?</AlertTitle>
+                  <AlertDescription>
+                    Choose &ldquo;I have a learner code&rdquo; to pick up your progress. Signing up again starts from zero and
+                    leaves an unused record behind (deleted after {config.privacy.retentionDays} days).
+                  </AlertDescription>
+                </Alert>
                 {onboarding.fields.map((field) => {
                   const showError = touched && field.required && !values[field.key]?.trim();
                   return (
@@ -171,9 +204,6 @@ export function Onboarding() {
                     Continue on this browser only
                   </Button>
                 ) : null}
-                <button type="button" className="w-full text-center text-sm text-primary underline" onClick={() => setMode('resume')}>
-                  I already have a learner code
-                </button>
               </>
             ) : (
               <>
@@ -190,9 +220,9 @@ export function Onboarding() {
                 <Button className="w-full" onClick={() => void resume()} disabled={busy || codeInput.trim().length < 16}>
                   {busy ? 'Checking…' : 'Continue'}
                 </Button>
-                <button type="button" className="w-full text-center text-sm text-primary underline" onClick={() => setMode('new')}>
-                  I&apos;m new here
-                </button>
+                <p className="text-center text-xs text-muted-foreground">
+                  Lost your code? It can&apos;t be recovered because we hold no email or name. You&apos;ll need to sign up again.
+                </p>
               </>
             )}
 
