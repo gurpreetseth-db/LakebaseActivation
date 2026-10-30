@@ -6,7 +6,7 @@ import { WorkspaceClient } from '@databricks/sdk-experimental';
 // Optional usage tracking (dbdemos-tracker). Reports an APP-VIEW event on page loads so the asset's
 // owners can see usage. Fire-and-forget: it never delays or breaks a request. Disable with
 // DBDEMOS_TRACKER_DISABLED=1.
-const DEMO_NAME = 'lakebase-partner-readiness-hub-711b';
+const DEMO_NAME = 'lakebase-partner-readiness-hub-6372';
 const ENDPOINT = 'https://ppxrzfxige.execute-api.us-west-2.amazonaws.com/v1/analytics';
 const TIMEOUT_MS = 2000;
 
